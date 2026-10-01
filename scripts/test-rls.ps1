@@ -271,7 +271,17 @@ Check 'admins unreadable' (-not $adm.ok) "HTTP $($adm.code) returned $($adm.body
 '=== cleanup ==='
 Sql "delete from auth.users where email like 'pip-rls-%'" | Out-Null
 Sql "delete from public.invites where label = 'rls test'" | Out-Null
-$left = Sql 'select count(*)::int as n from public.families'
+
+# Count only what this test created. Counting every family in the table passed
+# for as long as the table happened to be empty, and started failing the moment
+# the owner made a real profile. An assertion that depends on the rest of the
+# database being empty is not an assertion.
+$left = Sql @'
+select count(*)::int as n
+  from public.families f
+  left join auth.users u on u.id = f.owner_id
+ where u.id is null or u.email like 'pip-rls-%'
+'@
 Check 'deleting the accounts removed their families' ($left[0].n -eq 0) "$($left[0].n) rows left behind"
 
 ''
