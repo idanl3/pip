@@ -14,8 +14,8 @@ Three files carry the whole handover. Read all of them before doing anything:
 
 ## Right now
 
-**Phase 1 is complete**, except HTTPS enforcement, which is waiting on GitHub
-to issue a certificate.
+**Phase 1 is complete.** The site is live on HTTPS at
+https://pip.linnewiel.com with HTTP redirecting to it.
 
 **Phase 2 is part-built.** The schema, the row-level security policies and the
 guard triggers are applied and verified — `scripts/test-rls.ps1` runs 20 checks
@@ -31,7 +31,7 @@ families can use it. See "Owed by the owner".
 
 | Thing | Where | State |
 | --- | --- | --- |
-| Site | http://pip.linnewiel.com | Serving. HTTPS waiting on the certificate |
+| Site | https://pip.linnewiel.com | Serving over HTTPS, HTTP redirects. Let's Encrypt certificate renews itself; expires 2026-12-30 |
 | Repository | https://github.com/idanl3/pip | Public, as the free Pages plan requires |
 | Deploy | GitHub Actions, on push to `main` | Working, roughly 20 seconds end to end |
 | Supabase | `crlobhzwmqvyqvstvmho`, eu-central-1, Postgres 17.11, free plan | `ACTIVE_HEALTHY`. Auth, Data API and migrations all confirmed working |
@@ -43,10 +43,10 @@ families can use it. See "Owed by the owner".
 
 | # | Phase | State |
 | --- | --- | --- |
-| 1 | Project setup, Pages, domain | **Done**, except HTTPS enforcement |
+| 1 | Project setup, Pages, domain | **Done** |
 | 2 | Accounts and onboarding | **In progress.** Schema, policies and triggers done and tested. Login, onboarding form and admin screen still to build |
 | 3 | Agent templating | Not started. Narrower than the brief says — see `CLAUDE.md` §12 |
-| 4 | Sessions, PIN, kids' blob screen | Not started. **Needs HTTPS** — microphone access requires a secure context |
+| 4 | Sessions, PIN, kids' blob screen | Not started. HTTPS is in place, so microphone access will work |
 | 5 | Minute tracking and limits | Not started |
 | 6 | Encryption and recaps | Not started |
 | 7 | Safety alert and polish | Not started. Hebrew review is out of scope for now |
@@ -169,7 +169,14 @@ Each of these cost time. Don't rediscover them.
   itself.
 - **HTTPS enforcement can't be switched on until the certificate exists**, and
   the certificate needs working DNS. Attempting it early returns a confusing
-  "The certificate does not exist yet" 404. GitHub allows up to 24 hours.
+  "The certificate does not exist yet" 404.
+- **A stuck GitHub Pages certificate is fixed by removing and re-adding the
+  custom domain.** Ours sat unissued for two hours with DNS reporting valid and
+  HTTPS-eligible. Setting `cname` to empty, waiting twenty seconds, then
+  setting it back produced `state: approved` immediately. GitHub's documented
+  "up to 24 hours" is not the whole story — it can simply be stuck. Don't
+  repeat this more than once or twice, because Let's Encrypt rate-limits
+  duplicate certificate requests.
 - **Don't pass a `sb_publishable_` key as `Authorization: Bearer`.** It isn't a
   JWT. It belongs in the `apikey` header; `Bearer` carries a user's session JWT.
 
