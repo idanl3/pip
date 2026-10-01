@@ -226,3 +226,63 @@ on within eu-central-1, keeping the user as `postgres.<project-ref>`.
 **Rejected:** granting `Organizations: Read` and `Connection Pooling: Read`
 purely to make a convenience command work, when direct endpoint probing showed
 everything the project actually needs already returns 200.
+
+---
+
+## 13. Families join by invite link, not by emailed magic link
+**2026-10-01 — owner**
+
+The owner hands a family a link containing a one-time code. They open it, pick
+a password, and they are in. No email is ever sent.
+
+**Why:** magic links make email deliverability the whole login. Supabase's
+built-in mailer allows only a handful of messages an hour and is explicitly not
+meant for production, so a family could sit waiting for a link that never
+arrives. The owner would rather send the link themselves, which they are doing
+anyway to tell the family about Pip.
+
+**Where the rule lives:** in the database, not in a project setting. An account
+with no redeemed invitation cannot create a family profile, and without a
+family profile an account can do nothing whatsoever. Whether strangers can
+register is a dashboard toggle, and a dashboard toggle is not a security
+boundary — it can be flipped by accident and nothing in this repository would
+notice.
+
+**The code:** twelve characters, about 59 bits, from cryptographically random
+bytes rather than `random()`, in an alphabet with no O/0 or I/1 so it survives
+being read aloud or retyped. Single use. Thirty-day expiry.
+
+**Deliberately unhelpful on failure:** `redeem_invite` returns true or false
+and never says whether a code was wrong, already spent, or expired.
+Distinguishing those would make it an oracle for guessing.
+
+**The cost, and it is real:** without a mail server there is no self-service
+password reset. A parent who forgets their password needs the owner to reset
+it. At three to five families that is a message, not a problem. Adding custom
+SMTP later restores it without changing any of this.
+
+---
+
+## 14. Gender is not collected while the project is English only
+**2026-10-01 — owner, after checking**
+
+The onboarding form does not ask for a child's gender. The nullable column
+stays in the schema.
+
+**Why:** the owner asked whether gender actually reaches the agent, and it does
+not. The English prompt mentions gender nowhere at all — not once. It exists
+only in the Hebrew file, in the grammatical agreement rule, because Hebrew
+inflects verbs and adjectives by gender and Pip cannot form a correct sentence
+to a child without it.
+
+With Hebrew out of scope, asking for it would mean holding a data point about a
+child that nothing reads. The minimal-data rule is described in the brief as a
+core requirement rather than a nice-to-have, so collecting it anyway would be
+the wrong call.
+
+**Why keep the column:** it costs nothing empty, and keeping it means adding
+Hebrew later needs no migration.
+
+**What it will cost later:** families who signed up before Hebrew exists will
+need asking once. At pilot scale that is a single message, and it is the right
+trade against holding unused data about children.

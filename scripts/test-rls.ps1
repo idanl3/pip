@@ -66,6 +66,16 @@ function RowCount($json) {
   return @($parsed).Count
 }
 
+function Rpc($name, $jwt, $body) {
+  $h = @{ apikey = $key; 'Content-Type' = 'application/json' }
+  if ($jwt) { $h['Authorization'] = "Bearer $jwt" }
+  try {
+    return @{ ok = $true; value = (Invoke-RestMethod -Uri "$url/rest/v1/rpc/$name" -Method Post -Headers $h -Body $body -TimeoutSec 30) }
+  } catch {
+    return @{ ok = $false; value = $null; code = [int]$_.Exception.Response.StatusCode }
+  }
+}
+
 # Creates a confirmed, password-capable account without sending any email.
 # auth.identities needs a row too, or GoTrue will not accept the password.
 function MakeUser($email) {
@@ -124,6 +134,43 @@ $jwtA = SignIn $emailA
 $jwtB = SignIn $emailB
 Check 'both accounts can sign in'        ($jwtA -and $jwtB) 'no token returned'
 Check 'the two accounts really differ'   ($uidA -ne $uidB)  'same id for both'
+
+''
+'=== an account with no invitation can do nothing ==='
+$noInvite = Rest POST 'families' $jwtA (@{ parent_names = @('Nope') } | ConvertTo-Json -Compress)
+Check 'family creation refused without an invitation' (-not $noInvite.ok) "HTTP $($noInvite.code) - the insert succeeded"
+
+$cantRead = Rest GET 'invites?select=code' $jwtA $null
+if ($cantRead.ok) { Check 'invite codes invisible to a parent' ((RowCount $cantRead.body) -eq 0) "saw $(RowCount $cantRead.body) codes" }
+else              { Check 'invite codes invisible to a parent' $true "HTTP $($cantRead.code)" }
+
+''
+'=== redeeming invitations ==='
+Sql "delete from public.invites where label = 'rls test'" | Out-Null
+$codeA = (Sql "insert into public.invites (code, label) values (public.generate_invite_code(), 'rls test') returning code")[0].code
+$codeB = (Sql "insert into public.invites (code, label) values (public.generate_invite_code(), 'rls test') returning code")[0].code
+
+$bogus = Rpc 'redeem_invite' $jwtA (@{ invite_code = 'AAAAAAAAAAAA' } | ConvertTo-Json -Compress)
+Check 'a made-up code is refused' ($bogus.value -eq $false) "returned '$($bogus.value)'"
+
+$good = Rpc 'redeem_invite' $jwtA (@{ invite_code = $codeA } | ConvertTo-Json -Compress)
+Check 'a real code is accepted' ($good.value -eq $true) "returned '$($good.value)'"
+
+$again = Rpc 'redeem_invite' $jwtA (@{ invite_code = $codeA } | ConvertTo-Json -Compress)
+Check 'redeeming twice is harmless, not an error' ($again.value -eq $true) "returned '$($again.value)'"
+
+$reuse = Rpc 'redeem_invite' $jwtB (@{ invite_code = $codeA } | ConvertTo-Json -Compress)
+Check 'a used code cannot be claimed by someone else' ($reuse.value -eq $false) "returned '$($reuse.value)'"
+
+$bOk = Rpc 'redeem_invite' $jwtB (@{ invite_code = $codeB } | ConvertTo-Json -Compress)
+Check 'user B redeems their own code' ($bOk.value -eq $true) "returned '$($bOk.value)'"
+
+$expired = (Sql "insert into public.invites (code, label, expires_at) values (public.generate_invite_code(), 'rls test', now() - interval '1 day') returning code")[0].code
+Sql "delete from public.invites where used_by = '$uidB'" | Out-Null
+$exp = Rpc 'redeem_invite' $jwtB (@{ invite_code = $expired } | ConvertTo-Json -Compress)
+Check 'an expired code is refused' ($exp.value -eq $false) "returned '$($exp.value)'"
+# Give B a working invitation back for the tests below.
+Sql "update public.invites set used_at = now(), used_by = '$uidB' where code = '$codeB'" | Out-Null
 
 ''
 '=== creating a family owned by somebody else ==='
@@ -223,6 +270,7 @@ Check 'admins unreadable' (-not $adm.ok) "HTTP $($adm.code) returned $($adm.body
 ''
 '=== cleanup ==='
 Sql "delete from auth.users where email like 'pip-rls-%'" | Out-Null
+Sql "delete from public.invites where label = 'rls test'" | Out-Null
 $left = Sql 'select count(*)::int as n from public.families'
 Check 'deleting the accounts removed their families' ($left[0].n -eq 0) "$($left[0].n) rows left behind"
 
