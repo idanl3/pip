@@ -65,7 +65,14 @@ export default defineConfig(({ mode, command }) => {
     "base-uri 'none'",
     // No form is ever submitted to a server: everything goes through fetch.
     "form-action 'none'",
-    "frame-ancestors 'none'",
+    // Deliberately no frame-ancestors. It is ignored when delivered in a meta
+    // tag — only an HTTP header can carry it — and the browser logs an error
+    // saying so. GitHub Pages cannot send headers, so the directive achieved
+    // nothing except noise in the console.
+    //
+    // The consequence is real and worth stating: this site cannot stop itself
+    // being put in a frame. For a pilot behind a login and a PIN the risk is
+    // small, and the fix needs a host that can set headers.
   ].join('; ');
 
   return {
