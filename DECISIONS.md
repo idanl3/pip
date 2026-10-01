@@ -286,3 +286,60 @@ Hebrew later needs no migration.
 **What it will cost later:** families who signed up before Hebrew exists will
 need asking once. At pilot scale that is a single message, and it is the right
 trade against holding unused data about children.
+
+---
+
+## 15. No audio saved; conversations kept seven days
+**2026-10-02 — owner**
+
+Both agents now have `record_voice` off and `retention_days` set to 7.
+
+**Why it mattered urgently:** the agents were found set to `record_voice: true`
+and `retention_days: -1`, meaning ElevenLabs was recording the owner's three
+children and keeping it indefinitely. That contradicts the brief, which lists
+audio under "nowhere". It had been live throughout the owner's home testing.
+
+**Why seven days rather than the minimum:** the owner wants to be able to see
+what Pip actually said when reporting odd behaviour, and a transcript is the
+only way to do that. Audio is off either way, so what survives for a week is
+text. Worth the trade during a pilot; worth revisiting after it.
+
+**Applied to the Hebrew agent too.** Hebrew is out of scope for building, which
+is not a reason to leave children recorded.
+
+**The eight existing conversations were not deleted.** The owner wants them.
+They predate the change, so they contain audio, and the new seven-day window
+would have removed them around 8 October — so they were downloaded to
+`recordings/` instead, which is gitignored. Conversations now live on the
+owner's own machine rather than with a vendor, which is the better place for
+them.
+
+**`recordings/` must never be committed.** The repository is public and that
+folder holds children's voices and the words they said mid-argument. The ignore
+rule was written before the folder was created, so there was no window in which
+it could have been added.
+
+---
+
+## 16. What the agent audit found, and what is still unfixed
+**2026-10-02**
+
+Reading the live agent configuration confirmed the fault the owner saw at home,
+and the cause is not in the instructions.
+
+- **`built_in_tools.end_call` is `null`** — the tool is not enabled. The prompt
+  tells Pip to use `end_call` after its goodbye, so Pip has been instructed to
+  use a tool it does not have. That is exactly why it said goodbye and carried
+  on listening to the family.
+- **`silence_end_call_timeout` is `-1`** — disabled. No silence timeout either.
+- **`max_duration_seconds` is `600`** — a cap does exist, so a forgotten
+  session stops after ten minutes rather than running all day.
+- `turn_timeout` is 7 seconds.
+
+Both of the first two are fixed in phase 4, with the rest of the
+session-ending work in section 6.10. Fixing them is configuration, not a
+prompt change.
+
+**Also recorded:** the agent runs `claude-sonnet-5-5`, voice
+`DODLEQrClDo8wCz460ld`, a 17,715-character prompt, and no dynamic variables at
+all yet. Model and voice stay as they are, per the brief.

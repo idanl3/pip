@@ -24,3 +24,9 @@ Thumbs.db
 # as templates. See CLAUDE.md section 12.
 pip-mediator-instructions.md
 pip-mediator-instructions-he.md
+
+# Exported ElevenLabs conversations: transcripts and audio of real children.
+# This repository is public. Nothing from here may ever be committed, and the
+# rule is written before the folder exists so there is no window in which it
+# could be.
+/recordings/
