@@ -35,7 +35,8 @@ families can use it. See "Owed by the owner".
 | Repository | https://github.com/idanl3/pip | Public, as the free Pages plan requires |
 | Deploy | GitHub Actions, on push to `main` | Working, roughly 20 seconds end to end |
 | Supabase | `crlobhzwmqvyqvstvmho`, eu-central-1, Postgres 17.11, free plan | `ACTIVE_HEALTHY`. Auth, Data API and migrations all confirmed working |
-| ElevenLabs | English and Hebrew agents | Configured by hand in the dashboard. **This project has not touched them yet** |
+| ElevenLabs | English agent `agent_5001m3t0...` | Templated prompt pushed from this repository. `claude-sonnet-5-5`, voice `DODLEQrClDo8wCz460ld`, `end_call` on, 15-minute cap, no audio recorded, 7-day retention |
+| ElevenLabs | Hebrew agent `agent_2201m3v2...` | Out of scope. Privacy and duration fixed; prompt untouched |
 
 ---
 
@@ -45,7 +46,7 @@ families can use it. See "Owed by the owner".
 | --- | --- | --- |
 | 1 | Project setup, Pages, domain | **Done** |
 | 2 | Accounts and onboarding | **In progress.** Schema, policies and triggers done and tested. Login, onboarding form and admin screen still to build |
-| 3 | Agent templating | Not started. Narrower than the brief says — see `CLAUDE.md` §12 |
+| 3 | Agent templating | **Done.** Prompt templated and pushed, seven variables with defaults, `end_call` enabled, privacy fixed |
 | 4 | Sessions, PIN, kids' blob screen | Not started. HTTPS is in place, so microphone access will work |
 | 5 | Minute tracking and limits | Not started |
 | 6 | Encryption and recaps | Not started |
@@ -98,6 +99,27 @@ The CLI is deliberately **not linked** to the project. See decision 12.
 | `verify-deploy.ps1` | Checks the **live** site really works. Run before asking anyone to test |
 | `new-invite.ps1` | Creates an invitation and prints the link. For the bootstrap case |
 | `make-admin.ps1` | Puts an account on the admin roster. Only route in — that table is API-unreachable |
+
+### The agent
+
+`agent/pip-prompt.template.md` is the source of truth, **not the dashboard**.
+Editing the prompt in the ElevenLabs interface will be silently overwritten by
+the next push, and worse, nobody will know it diverged — which is exactly how
+the live agent came to be missing its whole ending section.
+
+```powershell
+node agent/push.mjs            # show what would change, change nothing
+node agent/push.mjs --apply    # push, then read it back and verify
+```
+
+The push refuses to run if a variable has no default, or if the prompt contains
+a hardcoded child profile. After pushing it re-reads the agent and checks nine
+things, including that the model, voice, privacy settings and duration cap were
+left alone.
+
+`agent/migrate-live-prompt.mjs` is history: the one-time script that generated
+the template from the live agent. Kept so the provenance of that file is
+visible.
 
 ### Checking the security still holds
 

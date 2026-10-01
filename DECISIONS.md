@@ -375,3 +375,38 @@ backup.
 `Client disconnected: 1000`. The browser closed the connection. Pip has never
 once ended a conversation itself, which is `end_call` being disabled rather
 than anything in the instructions.
+
+---
+
+## 18. The repository is the agent's source of truth, not the dashboard
+**2026-10-02**
+
+`agent/pip-prompt.template.md` holds the prompt. `agent/push.mjs` sends it to
+ElevenLabs and then reads the agent back to check what actually landed.
+
+**Why:** the live agent was found running a prompt that had drifted from the
+file, missing the entire ENDING THE CONVERSATION section — the part written to
+stop Pip listening to family life after saying goodbye. Nobody knew, because
+nothing ever compared the two. A dashboard that no one diffs is how a fix gets
+written and then quietly not applied.
+
+**Consequence to respect:** editing the prompt in the ElevenLabs interface now
+means losing that edit at the next push, with no warning. Change the file.
+
+**The push defaults to a dry run.** Sending a bad prompt to an agent that
+children talk to should take a deliberate `--apply`. It refuses outright if a
+variable has no default, or if the prompt contains a hardcoded child profile.
+Afterwards it verifies nine things, among them that the model, the voice, the
+privacy settings and the duration cap were left alone — a PATCH that quietly
+reset the voice would otherwise be invisible.
+
+**Variable defaults are neutral and are nobody's real family.** A default
+naming real children would leak one family's details into another's session
+the first time a variable failed to arrive. With no profile supplied the agent
+is told to ask each child their name and age instead, so talking to it from the
+dashboard still behaves sensibly.
+
+**What this means for dashboard testing:** the agent no longer knows the
+owner's children when spoken to directly. The real profile only arrives when a
+session starts through the website, in phase 4. Dashboard testing now tests
+Pip's behaviour, not Pip's knowledge of a particular family.
