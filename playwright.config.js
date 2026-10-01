@@ -3,6 +3,15 @@ import { loadEnvFile } from './tests/env.js';
 
 loadEnvFile();
 
+// Point the suite at the deployed site instead of the dev server:
+//
+//     $env:PIP_TEST_ORIGIN = 'https://pip.linnewiel.com'; npm test
+//
+// Worth having, because a bug reached the owner that localhost could never
+// have shown: the deployed bundle was two commits stale while the dev server
+// was perfectly fine. Testing only localhost proves only localhost.
+const origin = process.env.PIP_TEST_ORIGIN;
+
 export default defineConfig({
   testDir: './tests',
   timeout: 90_000,
@@ -16,7 +25,7 @@ export default defineConfig({
   reporter: [['list']],
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: origin ?? 'http://localhost:5173',
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -28,12 +37,16 @@ export default defineConfig({
     channel: 'chrome',
   },
 
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: 60_000,
-    // Stops Vite opening a browser window every time the tests run.
-    env: { PIP_NO_OPEN: '1' },
-  },
+  // Only start a dev server when testing locally. Against the deployed site
+  // there is nothing to start.
+  webServer: origin
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: 'http://localhost:5173',
+        reuseExistingServer: true,
+        timeout: 60_000,
+        // Stops Vite opening a browser window every time the tests run.
+        env: { PIP_NO_OPEN: '1' },
+      },
 });

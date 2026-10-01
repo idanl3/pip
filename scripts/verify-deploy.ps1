@@ -1,19 +1,26 @@
-# Checks that what is live actually works.
+# Checks that what is live is actually what the repository says, and works.
 #
 #     .\scripts\verify-deploy.ps1
 #
-# This exists because of a specific mistake. GitHub Actions has no .env file,
-# so the first deploy of the real pages went out with no Supabase
-# configuration at all: the content security policy lost its connect-src
-# origins and import.meta.env arrived undefined in the browser. Every page
-# returned a cheerful HTTP 200 and none of them could reach the database. The
-# deploy was green, the pages loaded, and the site was dead.
+# This script exists because of two mistakes, and its own first version was the
+# second of them.
 #
-# HTTP 200 is therefore not evidence of anything. Run this after a deploy,
-# before asking anyone to test.
+# A deploy once went out with no Supabase configuration at all. Every page
+# returned HTTP 200, looked completely normal, and could not reach the
+# database. So HTTP 200 is not evidence of anything.
+#
+# Then this script reported 28 of 28 passing while the live site was two
+# commits stale. It compared one live bundle against the local dist/ — but the
+# local build had failed, so dist/ was equally stale, and two old things
+# matched. Meanwhile CI had failed twice and nothing here looked.
+#
+# Hence: build first and refuse to continue if that fails, confirm CI actually
+# succeeded on the current commit, and compare every page's assets rather than
+# one.
 
 param(
-  [string]$Origin = 'https://pip.linnewiel.com'
+  [string]$Origin = 'https://pip.linnewiel.com',
+  [switch]$SkipBuild
 )
 
 Set-Location (Join-Path $PSScriptRoot '..')
@@ -33,8 +40,48 @@ function Fetch($path) {
   catch { return $null }
 }
 
+function AssetRefs($html) {
+  return [regex]::Matches($html, '(?:src|href)="(/assets/[^"]+)"') |
+    ForEach-Object { $_.Groups[1].Value } |
+    Sort-Object -Unique
+}
+
+# --- build, so the comparison below means something -------------------------
+if (-not $SkipBuild) {
+  '=== building ==='
+  $out = npm run build 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0) {
+    '  FAIL  the build does not succeed, so there is nothing trustworthy to compare against'
+    $out
+    exit 1
+  }
+  '  PASS  build succeeded'
+  $script:passed++
+}
+
+# --- did CI actually deploy this commit? ------------------------------------
+''
+'=== continuous integration ==='
+$localSha = (git rev-parse HEAD).Trim()
+$run = gh run list --branch main --limit 1 --json headSha,conclusion,displayTitle | ConvertFrom-Json
+
+if (-not $run) {
+  Check 'a workflow run exists' $false 'none found'
+} else {
+  Check "latest run succeeded ($($run[0].displayTitle))" ($run[0].conclusion -eq 'success') `
+    "conclusion is '$($run[0].conclusion)' - the live site does not have your changes"
+  Check 'that run was for the current commit' ($run[0].headSha -eq $localSha) `
+    "CI ran $($run[0].headSha.Substring(0,8)), local HEAD is $($localSha.Substring(0,8))"
+}
+
+$dirty = git status --porcelain
+Check 'no uncommitted changes' ([string]::IsNullOrWhiteSpace($dirty)) `
+  "uncommitted work cannot be live:`n$dirty"
+
+# --- pages -------------------------------------------------------------------
 $pages = @('/index.html', '/join.html', '/onboarding.html', '/home.html', '/admin.html', '/404.html')
 
+''
 '=== pages ==='
 $documents = @{}
 foreach ($p in $pages) {
@@ -44,14 +91,29 @@ foreach ($p in $pages) {
 }
 
 ''
+'=== live assets match the local build, page by page ==='
+foreach ($p in $pages) {
+  if (-not $documents.ContainsKey($p)) { continue }
+  $localPath = "dist$($p.Replace('/', '\'))"
+  if (-not (Test-Path $localPath)) {
+    Check "$p exists in the build" $false "no $localPath"
+    continue
+  }
+  $liveRefs  = AssetRefs $documents[$p]
+  $localRefs = AssetRefs (Get-Content $localPath -Raw)
+  $same = (($liveRefs -join '|') -eq ($localRefs -join '|'))
+  Check "$p serves the built assets" $same `
+    "live:  $($liveRefs -join ' ')`n          local: $($localRefs -join ' ')"
+}
+
+''
 '=== the policy reaches Supabase ==='
 foreach ($p in $pages) {
   if (-not $documents.ContainsKey($p)) { continue }
   $html = $documents[$p]
   $hasCsp = $html -match 'Content-Security-Policy'
   Check "$p carries a policy" $hasCsp 'no meta tag'
-
-  # 404.html needs no database, so it is allowed to omit the origins.
+  # 404.html needs no database, so it may omit the origins.
   if ($hasCsp -and $p -ne '/404.html') {
     Check "$p policy allows $expectedHost" ($html -match [regex]::Escape($expectedHost)) `
       'connect-src has no Supabase origin - the build ran without VITE_SUPABASE_URL'
@@ -60,14 +122,14 @@ foreach ($p in $pages) {
 
 ''
 '=== the bundle was built with configuration ==='
-# This is the check that would have caught the dead deploy.
-$joinHtml = $documents['/join.html']
 $chunks = @()
-if ($joinHtml) {
-  $chunks += [regex]::Matches($joinHtml, '(?:src|href)="(/assets/[^"]+\.js)"') | ForEach-Object { $_.Groups[1].Value }
+foreach ($p in $pages) {
+  if ($documents.ContainsKey($p)) {
+    $chunks += AssetRefs $documents[$p] | Where-Object { $_ -like '*.js' }
+  }
 }
-$chunks = $chunks | Select-Object -Unique
-Check 'join.html references at least one script' ($chunks.Count -gt 0) 'no script tags found'
+$chunks = $chunks | Sort-Object -Unique
+Check 'pages reference scripts' ($chunks.Count -gt 0) 'none found'
 
 $configured = $false
 foreach ($c in $chunks) {
@@ -95,17 +157,6 @@ try {
     "ended at $($r.BaseResponse.ResponseUri)"
 } catch {
   Check 'plain http redirects to https' $false $_.Exception.Message.Split([char]10)[0]
-}
-
-''
-'=== live matches the local build ==='
-if (Test-Path dist\join.html) {
-  $localJs = ([regex]::Match((Get-Content dist\join.html -Raw), 'src="(/assets/join-[^"]+\.js)"')).Groups[1].Value
-  $liveJs  = ([regex]::Match($joinHtml, 'src="(/assets/join-[^"]+\.js)"')).Groups[1].Value
-  Check 'deployed bundle matches the last local build' ($localJs -eq $liveJs) `
-    "live $liveJs vs local $localJs - the deploy may be mid-flight or from a different commit"
-} else {
-  '  skipped - no local dist/ to compare against'
 }
 
 ''
