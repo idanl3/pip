@@ -51,10 +51,45 @@ export function testEmail() {
   return `${TEST_EMAIL_PREFIX}${Date.now()}-${Math.floor(Math.random() * 1e4)}@pip.invalid`;
 }
 
+/**
+ * Puts an account on the admin roster.
+ *
+ * Only reachable with database credentials, because public.admins has no
+ * grants and no policies — which is the point of it. An admin roster the
+ * application could edit would not be worth much.
+ */
+export async function promoteToAdmin(email) {
+  await sql(`
+    insert into public.admins (user_id)
+    select id from auth.users where lower(email) = lower('${email}')
+    on conflict (user_id) do nothing
+  `);
+}
+
+/** The family row belonging to an account, read straight from the database. */
+export async function familyOf(email) {
+  const rows = await sql(`
+    select f.status, f.review_note, f.monthly_minute_limit
+      from public.families f
+      join auth.users u on u.id = f.owner_id
+     where lower(u.email) = lower('${email}')
+  `);
+  return rows[0];
+}
+
 /** Removes everything the tests created. Safe to call repeatedly. */
 export async function cleanupTestData() {
+  // Deleting the accounts takes their families and children with them, and
+  // drops them off the admin roster, both by cascade.
   await sql(`delete from auth.users where email like '${TEST_EMAIL_PREFIX}%'`);
-  await sql(`delete from public.invites where label = '${INVITE_LABEL}'`);
+
+  // Invitations made directly by the fixtures, and any the admin test created
+  // through the interface, which label themselves E2E-INVITE-<timestamp>.
+  await sql(`
+    delete from public.invites
+     where label = '${INVITE_LABEL}'
+        or label like 'E2E-%'
+  `);
 }
 
 /**
