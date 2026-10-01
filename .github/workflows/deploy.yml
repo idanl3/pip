@@ -28,7 +28,16 @@ jobs:
           cache: npm
 
       - run: npm ci
+      # The build needs these or it silently produces a site that cannot reach
+      # Supabase: the policy loses its origins and import.meta.env comes back
+      # undefined. They are repository *variables*, not secrets - both are
+      # public by design, and the publishable key is built to ship inside a
+      # browser bundle. vite.config.js now fails the build outright when they
+      # are absent, because the old failure mode was a silent dead deploy.
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       # enablement lets the first run on a fresh repository turn Pages on
       # itself, rather than failing with "Get Pages site failed".

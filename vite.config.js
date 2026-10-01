@@ -10,10 +10,34 @@ function pageInputs() {
   return Object.fromEntries(pages.map((f) => [f.replace(/\.html$/, ''), `./${f}`]));
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Read .env directly rather than through import.meta.env, because the policy
   // below is assembled at config time, before any of that exists.
   const env = loadEnv(mode, process.cwd(), '');
+
+  // Refuse to build without these.
+  //
+  // Missing, they do not break the build — they produce a site that loads,
+  // looks correct, and cannot reach Supabase at all. The policy below loses
+  // its connect-src origins, and import.meta.env.VITE_SUPABASE_URL arrives
+  // undefined in the browser, so every page throws before rendering anything
+  // useful.
+  //
+  // That is exactly what happened: GitHub Actions has no .env file, so the
+  // first deploy of the real pages went out dead, and nothing complained. It
+  // was only found by fetching the live bundle and grepping it. Hence this.
+  if (command === 'build') {
+    const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'].filter(
+      (key) => !env[key],
+    );
+    if (missing.length) {
+      throw new Error(
+        `Refusing to build without ${missing.join(' and ')}.\n` +
+          'Locally these come from .env. In CI they come from repository ' +
+          'variables, passed to the build step in .github/workflows/deploy.yml.',
+      );
+    }
+  }
 
   const supabase = env.VITE_SUPABASE_URL ? new URL(env.VITE_SUPABASE_URL).origin : '';
   const supabaseSocket = supabase.replace(/^https:/, 'wss:');
