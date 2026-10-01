@@ -92,6 +92,7 @@ The CLI is deliberately **not linked** to the project. See decision 12.
 | --- | --- |
 | `load-env.ps1` | Dot-source first. Refreshes PATH, loads `.env`, builds `PIP_DB_URL` |
 | `test-rls.ps1` | Attacks the schema with two real accounts. Run after any policy change |
+| `npm test` | Playwright, in a real browser. Walks the whole join-and-onboard journey |
 | `verify-deploy.ps1` | Checks the **live** site really works. Run before asking anyone to test |
 | `new-invite.ps1` | Creates an invitation and prints the link. For the bootstrap case |
 | `make-admin.ps1` | Puts an account on the admin roster. Only route in — that table is API-unreachable |
@@ -142,6 +143,14 @@ Each of these cost time. Don't rediscover them.
   directly** rather than guessing which scope to add. Call the endpoints with
   `Authorization: Bearer $env:SUPABASE_ACCESS_TOKEN` and see which ones 403.
   That turned a guessing game into a two-minute answer.
+- **An interactive element can render perfectly and do nothing at all.** The
+  "Add another child" button was written with no click handler; the only code
+  touching it adjusted its visibility. It looked enabled and was inert. To find
+  this class of bug, list every id in the markup and check each one is actually
+  referenced by a handler — or just run `npm test`, which now asserts it.
+- **Playwright's own browser will not download here**, so the tests drive the
+  Chrome already installed on the machine via `channel: 'chrome'`. Don't
+  "fix" this by reinstating the download.
 - **A green deploy proves nothing. HTTP 200 proves nothing.** GitHub Actions
   has no `.env`, so the first deploy of the real pages built without
   `VITE_SUPABASE_URL`. Nothing failed. Every page returned 200, looked
