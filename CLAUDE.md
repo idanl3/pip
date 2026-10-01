@@ -4,6 +4,23 @@ This brief hands over a project that was designed in a separate conversation. Re
 
 ---
 
+## Start here — read these three files
+
+This brief is only one of three. Read all of them before doing anything:
+
+| File | What it holds |
+| --- | --- |
+| `CLAUDE.md` | This file: the brief, plus **section 12, whose amendments override everything above them** |
+| `PROGRESS.md` | What is built, what is next, what is blocked, and the gotchas already paid for |
+| `DECISIONS.md` | Why things are the way they are. Read before changing an approach |
+
+Keep them current. Update `PROGRESS.md` at every phase checkpoint, and append
+to `DECISIONS.md` whenever something is settled that a later session might
+otherwise undo. A stale handover file is worse than none, because it gets
+believed.
+
+---
+
 ## 1. What we're building
 
 **Pip** is a voice-based mediator that helps children work through conflicts with each other, using each conflict as a chance to grow: calming down, naming feelings, telling their side, listening, solving problems together, and repairing the relationship.

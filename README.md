@@ -9,6 +9,8 @@ Private pilot for a handful of invited families. Not a public product.
 
 - **Live site:** https://pip.linnewiel.com
 - **Project brief and ground rules:** [`CLAUDE.md`](./CLAUDE.md)
+- **Where it stands:** [`PROGRESS.md`](./PROGRESS.md)
+- **Why it is built this way:** [`DECISIONS.md`](./DECISIONS.md)
 - **Agent instructions:** kept out of this repository until phase 3 — see `CLAUDE.md` section 12
 
 ## How it fits together
