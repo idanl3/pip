@@ -17,11 +17,13 @@ Three files carry the whole handover. Read all of them before doing anything:
 **Phase 1 is complete**, except HTTPS enforcement, which is waiting on GitHub
 to issue a certificate.
 
-**Phase 2 has started.** The database is reachable and the migration history is
-empty. Nothing has been built on top of it yet: no schema, no policies, no
-login, no onboarding form.
+**Phase 2 is part-built.** The schema, the row-level security policies and the
+guard triggers are applied and verified — `scripts/test-rls.ps1` runs 20 checks
+against the live database and all pass. Still to build: login, the onboarding
+form, and the admin approval screen.
 
-**Not blocked.** Everything needed from the owner for phase 2 has arrived.
+**Not blocked**, but magic-link login will need custom SMTP before real
+families can use it. See "Owed by the owner".
 
 ---
 
@@ -42,7 +44,7 @@ login, no onboarding form.
 | # | Phase | State |
 | --- | --- | --- |
 | 1 | Project setup, Pages, domain | **Done**, except HTTPS enforcement |
-| 2 | Accounts and onboarding | **In progress.** Database reachable; nothing built yet |
+| 2 | Accounts and onboarding | **In progress.** Schema, policies and triggers done and tested. Login, onboarding form and admin screen still to build |
 | 3 | Agent templating | Not started. Narrower than the brief says — see `CLAUDE.md` §12 |
 | 4 | Sessions, PIN, kids' blob screen | Not started. **Needs HTTPS** — microphone access requires a secure context |
 | 5 | Minute tracking and limits | Not started |
@@ -84,6 +86,29 @@ npx supabase migration list --db-url $env:PIP_DB_URL
 
 The CLI is deliberately **not linked** to the project. See decision 12.
 
+### Checking the security still holds
+
+```powershell
+.\scripts\test-rls.ps1
+```
+
+Creates two real accounts, attacks the schema with them, deletes them again.
+Run it after touching any policy, trigger or grant. 20 checks; anything other
+than "20 passed, 0 failed" means a rule stopped holding.
+
+### The database schema
+
+Three tables. `admins` is the roster of people who may approve families, and
+has **no grants and no policies at all**, so it is unreachable through the API
+— only the security-definer function `is_admin()` can see inside it.
+`families` is one row per parent account. `children` holds first name, age,
+gender and two short free-text notes, and nothing else; it is the most
+sensitive table in the project and should stay that small.
+
+Status, reviewer notes and minute limits belong to the admin. Parents cannot
+write them even by sending the fields directly — a trigger puts them back —
+and any parent edit sends the family back to `pending`.
+
 ---
 
 ## Gotchas found the hard way
@@ -107,6 +132,21 @@ Each of these cost time. Don't rediscover them.
   directly** rather than guessing which scope to add. Call the endpoints with
   `Authorization: Bearer $env:SUPABASE_ACCESS_TOKEN` and see which ones 403.
   That turned a guessing game into a two-minute answer.
+- **`@($null).Count` is 1 in PowerShell, not 0.** PostgREST returns `[]` for no
+  rows, `ConvertFrom-Json` turns `[]` into `$null`, and wrapping that in `@()`
+  produces a one-element array. This made the security test report four
+  cross-family data leaks that did not exist. Count rows with the `RowCount`
+  helper in `scripts/test-rls.ps1`, never inline.
+- **Supabase's built-in email is rate-limited to a handful per hour.** It is
+  not a production mailer. This bit as a mysterious `invalid_credentials` on a
+  test's second run, because the signup underneath had silently failed. It
+  matters far beyond tests: magic-link login *is* the authentication, so the
+  pilot needs custom SMTP.
+- **Seeding `auth.users` by hand: four columns have no default** —
+  `confirmation_token`, `recovery_token`, `email_change_token_new` and
+  `email_change`. Their siblings default to `''`. GoTrue reads them into plain
+  Go strings, so leaving them NULL makes sign-in fail with an opaque **500**.
+  Set them to `''`. An `auth.identities` row is required too.
 - **Free Supabase projects pause after one week of inactivity.** A quiet week
   in a pilot about sibling fights is entirely plausible, and a paused project
   means logins fail. Needs a scheduled ping; pair it with the recap cleanup job
@@ -142,6 +182,12 @@ Each of these cost time. Don't rediscover them.
 - [x] DNS record for `pip.linnewiel.com`
 - [x] Database password in `.env`
 - [x] Scoped Supabase access token in `.env`
+- [ ] **Custom SMTP for Supabase auth emails.** The built-in mailer allows only
+      a handful of messages per hour and Supabase does not intend it for
+      production. Magic links are the whole login, so without this a family
+      waiting on a link may simply never get one. Resend's free tier is ample
+      for five families. Needed before real families are invited, not before
+      the next build step.
 - [ ] ElevenLabs API key and the English agent ID — needed for phase 3
 - [ ] Test each phase and report back
 
