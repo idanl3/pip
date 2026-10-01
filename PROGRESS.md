@@ -86,6 +86,16 @@ npx supabase migration list --db-url $env:PIP_DB_URL
 
 The CLI is deliberately **not linked** to the project. See decision 12.
 
+### Scripts
+
+| Script | What it does |
+| --- | --- |
+| `load-env.ps1` | Dot-source first. Refreshes PATH, loads `.env`, builds `PIP_DB_URL` |
+| `test-rls.ps1` | Attacks the schema with two real accounts. Run after any policy change |
+| `verify-deploy.ps1` | Checks the **live** site really works. Run before asking anyone to test |
+| `new-invite.ps1` | Creates an invitation and prints the link. For the bootstrap case |
+| `make-admin.ps1` | Puts an account on the admin roster. Only route in — that table is API-unreachable |
+
 ### Checking the security still holds
 
 ```powershell
@@ -132,6 +142,16 @@ Each of these cost time. Don't rediscover them.
   directly** rather than guessing which scope to add. Call the endpoints with
   `Authorization: Bearer $env:SUPABASE_ACCESS_TOKEN` and see which ones 403.
   That turned a guessing game into a two-minute answer.
+- **A green deploy proves nothing. HTTP 200 proves nothing.** GitHub Actions
+  has no `.env`, so the first deploy of the real pages built without
+  `VITE_SUPABASE_URL`. Nothing failed. Every page returned 200, looked
+  completely normal, and could not reach the database: the policy shipped as
+  `connect-src 'self'` with no Supabase origin, and `import.meta.env` arrived
+  undefined, so each page threw before rendering. It was found by fetching the
+  live bundle and grepping it for the project ref. Two guards now exist —
+  `vite.config.js` refuses to build without the variables, and
+  `scripts/verify-deploy.ps1` checks the live site. **Run it before asking
+  anyone to test.**
 - **`@($null).Count` is 1 in PowerShell, not 0.** PostgREST returns `[]` for no
   rows, `ConvertFrom-Json` turns `[]` into `$null`, and wrapping that in `@()`
   produces a one-element array. This made the security test report four
