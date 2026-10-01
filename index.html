@@ -7,17 +7,61 @@
     <meta name="theme-color" content="#fff6ec" />
     <title>Pip</title>
     <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
   </head>
-  <body class="holding">
-    <main class="holding__card">
-      <div class="blob" aria-hidden="true">
-        <span class="blob__layer blob__layer--1"></span>
-        <span class="blob__layer blob__layer--2"></span>
-        <span class="blob__layer blob__layer--3"></span>
-      </div>
-      <h1 class="holding__title">Pip</h1>
-      <p class="holding__tagline">A gentle helper for working things out.</p>
-      <p class="holding__note">Private pilot &middot; by invitation only</p>
-    </main>
+  <body>
+    <div class="page page--narrow">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">Pip</h1>
+      </header>
+
+      <p class="lede">
+        A gentle helper for working things out. Sign in to set up a session.
+      </p>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+
+      <form id="signin" novalidate>
+        <div class="field">
+          <label class="field__label" for="email">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <button id="submit" class="btn btn--block" type="submit">Sign in</button>
+      </form>
+
+      <h2>Been invited?</h2>
+      <p class="muted">
+        Open the link Idan sent you and it will set your account up. Pip is
+        invitation only — there is no sign-up form.
+      </p>
+
+      <h2>Forgotten your password?</h2>
+      <p class="muted">
+        Ask Idan to reset it. Pip deliberately sends no email at all, so there
+        is no reset link — which also means no message to wait for, and nothing
+        to land in spam.
+      </p>
+    </div>
+
+    <script type="module" src="./src/signin.js"></script>
   </body>
 </html>

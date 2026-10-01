@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <title>Join Pip</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body>
+    <div class="page page--narrow">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">Join Pip</h1>
+      </header>
+
+      <p class="lede">
+        Pip is a gentle voice helper that sits with your children while they
+        work out a fight — calming down, saying their side, listening, and
+        agreeing what to do. You start every session and stay nearby.
+      </p>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+
+      <form id="join" novalidate>
+        <div class="field" id="code-field">
+          <label class="field__label" for="code">Invitation code</label>
+          <p class="field__hint">
+            This usually fills in by itself from the link you were sent.
+          </p>
+          <input
+            id="code"
+            name="code"
+            type="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="email">Your email</label>
+          <p class="field__hint">
+            Used only to sign you in, and so Idan knows which family is which.
+            Pip never emails you.
+          </p>
+          <input id="email" name="email" type="email" autocomplete="email" required />
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password">Choose a password</label>
+          <p class="field__hint">
+            Let your phone save this one. There is no reset email, so if you
+            forget it you will need to ask Idan.
+          </p>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+            required
+          />
+          <p class="field__error" id="password-error"></p>
+        </div>
+
+        <button id="submit" class="btn btn--block" type="submit">
+          Create my account
+        </button>
+      </form>
+
+      <p class="muted" style="margin-block-start: 1.5rem">
+        Next you will answer a few questions about your children, so Pip knows
+        who it is talking to. Idan reads that before you start, and only you can
+        see it afterwards.
+      </p>
+
+      <p class="muted">
+        Already have an account? <a href="/index.html">Sign in instead</a>.
+      </p>
+    </div>
+
+    <script type="module" src="./src/join.js"></script>
+  </body>
+</html>

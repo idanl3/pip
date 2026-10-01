@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <title>Pip — admin</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">Pip — admin</h1>
+      </header>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+
+      <h2>Invite a family</h2>
+      <div class="card">
+        <div class="field" style="margin-block-end: 0.75rem">
+          <label class="field__label" for="invite-label">Who is this for?</label>
+          <p class="field__hint">
+            Your own note, so you can tell codes apart. The family never sees
+            it. An adult's name is enough — don't put a child's name here.
+          </p>
+          <input id="invite-label" type="text" maxlength="120" />
+        </div>
+        <button class="btn" id="make-invite" type="button">Create an invitation</button>
+      </div>
+
+      <div id="invites"></div>
+
+      <h2>Families</h2>
+      <div id="families"></div>
+    </div>
+
+    <script type="module" src="./src/admin.js"></script>
+  </body>
+</html>

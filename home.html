@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <title>Pip</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">Pip</h1>
+      </header>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+
+      <div id="status" class="notice notice--info">
+        <strong id="status-title"></strong>
+        <p id="status-body" style="margin: 0.35rem 0 0"></p>
+        <p id="status-note" style="margin: 0.5rem 0 0"></p>
+      </div>
+
+      <div id="start-card" class="card hidden">
+        <p class="card__title">Start a session</p>
+        <p class="muted" style="margin-block-end: 0">
+          Coming next. Pip's own screen, with the blob your children will talk
+          to, is the next thing being built.
+        </p>
+      </div>
+
+      <h2>Your family</h2>
+      <div id="family" class="card"></div>
+
+      <div class="actions">
+        <a class="btn" href="/onboarding.html">Edit these answers</a>
+        <button type="button" class="btn btn--link" id="sign-out">Sign out</button>
+      </div>
+
+      <h2>What Pip keeps</h2>
+      <p class="muted">
+        The answers above, and how many minutes you have used. No recordings,
+        ever. What your children actually say is never stored on our side —
+        Pip's voice goes straight between the browser and the voice service, and
+        the conversation is not written down anywhere we can read.
+      </p>
+    </div>
+
+    <script type="module" src="./src/home.js"></script>
+  </body>
+</html>

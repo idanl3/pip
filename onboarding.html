@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <title>About your family — Pip</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">About your family</h1>
+      </header>
+
+      <p class="lede">
+        Pip uses this quietly, to know who it is talking to and what to watch
+        for. It never repeats any of it back to your children. Nothing here is
+        a test — rough answers are genuinely fine, and you can change them
+        whenever you like.
+      </p>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+      <div id="review-note" class="notice notice--waiting hidden"></div>
+
+      <form id="profile" novalidate>
+        <!-- Parents ------------------------------------------------------ -->
+        <h2>What do your children call you?</h2>
+        <div class="field">
+          <p class="field__hint">
+            The words they actually use, not your names. Pip turns to you by
+            this at the end of a session.
+          </p>
+          <div class="chips" id="parent-chips"></div>
+          <label class="visually-hidden" for="parent-other">
+            Other words your children use
+          </label>
+          <input
+            id="parent-other"
+            type="text"
+            placeholder="Or type them, separated by commas"
+          />
+        </div>
+
+        <!-- Children ----------------------------------------------------- -->
+        <h2>Your children</h2>
+        <p class="field__hint">
+          First names only. Pip asks nothing else about them, and never asks
+          them for anything either.
+        </p>
+
+        <div id="children"></div>
+
+        <button type="button" class="btn btn--quiet" id="add-child">
+          Add another child
+        </button>
+
+        <!-- The family ---------------------------------------------------- -->
+        <h2>What do they argue about?</h2>
+        <div class="field">
+          <p class="field__hint">
+            The same fights that keep coming back. If Pip recognises one, it
+            mentions it to you afterwards.
+          </p>
+          <div class="chips" id="recurring-chips"></div>
+          <label class="visually-hidden" for="recurring-other">
+            Other recurring arguments
+          </label>
+          <textarea id="recurring-other" placeholder="Anything else, in your own words"></textarea>
+        </div>
+
+        <h2>House rules they already know</h2>
+        <div class="field">
+          <p class="field__hint">
+            So Pip does not help them agree on something you have already
+            ruled out.
+          </p>
+          <div class="chips" id="rules-chips"></div>
+          <label class="visually-hidden" for="rules-other">Other house rules</label>
+          <textarea id="rules-other" placeholder="Anything else, in your own words"></textarea>
+        </div>
+
+        <h2>Anything to handle with extra care?</h2>
+        <div class="field">
+          <label class="field__hint" for="extra-care">
+            Something tender at the moment — a bereavement, a new baby, a hard
+            time at school, something one of them is sensitive about. Leave it
+            blank if there is nothing. Pip will tread carefully rather than ask
+            about it.
+          </label>
+          <textarea id="extra-care"></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="submit" class="btn" type="submit">Send for approval</button>
+          <button type="button" class="btn btn--link" id="sign-out">Sign out</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- One child's questions. Cloned per child rather than written out
+         three times, so the wording can only ever be changed in one place. -->
+    <template id="child-template">
+      <section class="child">
+        <div class="child__head">
+          <p class="child__number"></p>
+          <button type="button" class="btn btn--link js-remove">Remove</button>
+        </div>
+
+        <div class="row">
+          <div class="field" style="margin-block-end: 1rem">
+            <label class="field__label js-name-label">First name</label>
+            <input class="js-name" type="text" autocomplete="off" maxlength="40" />
+          </div>
+          <div class="field width-short" style="margin-block-end: 1rem">
+            <label class="field__label js-age-label">Age</label>
+            <input class="js-age" type="number" min="1" max="18" inputmode="numeric" />
+          </div>
+        </div>
+        <p class="field__error js-child-error"></p>
+
+        <div class="field">
+          <p class="field__label">What are they like?</p>
+          <p class="field__hint">
+            Tap anything that fits. Two or three is plenty.
+          </p>
+          <div class="chips js-personality-chips"></div>
+          <textarea class="js-personality-other" placeholder="Or describe them yourself"></textarea>
+        </div>
+
+        <div class="field" style="margin-block-end: 0">
+          <p class="field__label">When a fight starts, what do they do?</p>
+          <p class="field__hint">
+            This is the most useful question on the page. It is what stops Pip
+            pushing a child who goes quiet, or taking a fast "sorry" at face
+            value.
+          </p>
+          <div class="chips js-conflict-chips"></div>
+          <textarea class="js-conflict-other" placeholder="Or describe it yourself"></textarea>
+        </div>
+      </section>
+    </template>
+
+    <script type="module" src="./src/onboarding.js"></script>
+  </body>
+</html>
