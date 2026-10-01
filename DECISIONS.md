@@ -343,3 +343,35 @@ prompt change.
 **Also recorded:** the agent runs `claude-sonnet-5-5`, voice
 `DODLEQrClDo8wCz460ld`, a 17,715-character prompt, and no dynamic variables at
 all yet. Model and voice stay as they are, per the brief.
+
+---
+
+## 17. Maximum session length raised to fifteen minutes
+**2026-10-02 — owner**
+
+`max_duration_seconds` is 900 on both agents, up from 600.
+
+**Why:** the owner noticed a test session had run to nine minutes and thought
+ten looked tight. The exported data showed worse than tight. One session ended
+with `termination_reason: "Conversation has exceeded maximum duration"` at
+exactly 600 seconds, with an active exchange in its final turns — a child
+speaking at 9:42 and Pip answering at 9:47, then nothing. Pip was severed
+mid-mediation, with no repair stage and no goodbye, which is the worst possible
+moment to vanish on two upset children.
+
+Real sessions in the sample ran 454, 525 and 563 seconds, so seven to ten
+minutes is normal for a full mediation rather than exceptional. Ten minutes was
+not headroom, it was a ceiling being hit. Fifteen is also the figure the brief
+suggests.
+
+**What it does not change:** the monthly limit per family still governs cost,
+so a longer per-session cap does not raise the monthly ceiling — it only stops
+a single mediation being guillotined. The risk it does add is that a stuck
+session burns fifteen minutes instead of ten, which is why the session-ending
+work in phase 4 matters: `end_call`, a silence timeout, and a client-side
+backup.
+
+**Noticed in the same data:** every session except the truncated one ended with
+`Client disconnected: 1000`. The browser closed the connection. Pip has never
+once ended a conversation itself, which is `end_call` being disabled rather
+than anything in the instructions.
