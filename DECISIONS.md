@@ -191,3 +191,38 @@ getting a useless one.
 
 **Cost:** the owner invites each family by hand. Trivial at three to five
 families.
+
+---
+
+## 12. The CLI is not linked; migrations go through the pooler
+**2026-10-01**
+
+The Supabase CLI is never linked to the project. Commands pass `--db-url`,
+assembled by `scripts/load-env.ps1` from parts kept in `.env`.
+
+**Why:** two reasons, and the second is the one that forces it.
+
+`supabase link` calls `/v1/organizations`, which a project-scoped access token
+cannot read. Granting that would have meant a third trip to the dashboard for a
+permission nothing else needs.
+
+More importantly, `db.<ref>.supabase.co` resolves to IPv6 only, and the
+development machine has no routable IPv6 address, so the direct host is
+unreachable whether the CLI is linked or not. Migrations must go through the
+pooler regardless.
+
+**How the pooler host was found:** no endpoint this token can read publishes
+it. The regional candidates were tried until one authenticated.
+`aws-0-eu-central-1` accepts TCP on both ports but rejects the tenant;
+`aws-1-eu-central-1` is the one that works. Session mode on port 5432, not
+transaction mode on 6543, because migrations need a session.
+
+**Verified:** `supabase migration list` returns cleanly through the assembled
+connection string.
+
+**If it breaks later:** the pooler host has moved. Try `aws-0`, `aws-2` and so
+on within eu-central-1, keeping the user as `postgres.<project-ref>`.
+
+**Rejected:** granting `Organizations: Read` and `Connection Pooling: Read`
+purely to make a convenience command work, when direct endpoint probing showed
+everything the project actually needs already returns 200.
