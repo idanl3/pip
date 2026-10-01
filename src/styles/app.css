@@ -343,3 +343,54 @@ textarea[aria-invalid='true'] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Spacing helpers ----------------------------------------------------
+   These exist because inline style attributes are blocked by the content
+   security policy. style-src 'self' refuses them, the browser logs
+   "Applying inline style violates ..." and the style simply never applies.
+   Which means a stray style="" does not look wrong locally — the dev server
+   injects no policy — and then silently does nothing in production.
+
+   Setting styles from JavaScript is fine, by the way: the policy governs
+   markup attributes and <style> elements, not CSSOM. */
+
+.page--centred {
+  text-align: center;
+  padding-block-start: 4rem;
+}
+
+.page__mark--centred {
+  margin: 0 auto 1.25rem;
+}
+
+.lede--tight {
+  margin-block-start: 0.5rem;
+}
+
+.field--tight {
+  margin-block-end: 0.75rem;
+}
+
+.field--child {
+  margin-block-end: 1rem;
+}
+
+.field--last {
+  margin-block-end: 0;
+}
+
+.status__line {
+  margin: 0.35rem 0 0;
+}
+
+.status__note {
+  margin: 0.5rem 0 0;
+}
+
+.muted--flush {
+  margin-block-end: 0;
+}
+
+.muted--spaced {
+  margin-block-start: 1.5rem;
+}

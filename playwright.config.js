@@ -3,14 +3,56 @@ import { loadEnvFile } from './tests/env.js';
 
 loadEnvFile();
 
-// Point the suite at the deployed site instead of the dev server:
-//
-//     $env:PIP_TEST_ORIGIN = 'https://pip.linnewiel.com'; npm test
-//
-// Worth having, because a bug reached the owner that localhost could never
-// have shown: the deployed bundle was two commits stale while the dev server
-// was perfectly fine. Testing only localhost proves only localhost.
-const origin = process.env.PIP_TEST_ORIGIN;
+/**
+ * Three ways to run the suite, and they catch different things.
+ *
+ *   npm test              the dev server. Fast, and the one to use while
+ *                         writing code. Injects no content security policy,
+ *                         so it cannot see policy violations at all.
+ *
+ *   npm run test:built    builds and serves dist/ locally. This is the one
+ *                         that sees the real policy. A blocked inline style
+ *                         looks perfectly fine on the dev server and then
+ *                         silently does nothing in production, and that is
+ *                         exactly how a layout bug reached the owner.
+ *
+ *   npm run test:live     the deployed site. The only way to catch a stale
+ *                         deploy, which has also happened.
+ *
+ * Use the dev server while working, the built one before committing, and the
+ * live one after deploying.
+ */
+const liveOrigin = process.env.PIP_TEST_ORIGIN;
+const testBuilt = Boolean(process.env.PIP_TEST_BUILT);
+
+const PREVIEW_PORT = 4173;
+
+function server() {
+  if (liveOrigin) return undefined; // nothing to start
+
+  if (testBuilt) {
+    return {
+      command: `npm run build && npx vite preview --port ${PREVIEW_PORT} --strictPort`,
+      url: `http://localhost:${PREVIEW_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    };
+  }
+
+  return {
+    command: 'npm run dev',
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
+    timeout: 60_000,
+    // Stops Vite opening a browser window every time the tests run.
+    env: { PIP_NO_OPEN: '1' },
+  };
+}
+
+function baseURL() {
+  if (liveOrigin) return liveOrigin;
+  return testBuilt ? `http://localhost:${PREVIEW_PORT}` : 'http://localhost:5173';
+}
 
 export default defineConfig({
   testDir: './tests',
@@ -25,28 +67,16 @@ export default defineConfig({
   reporter: [['list']],
 
   use: {
-    baseURL: origin ?? 'http://localhost:5173',
+    baseURL: baseURL(),
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
 
     // Playwright's own Chrome for Testing build could not be downloaded in
     // this environment, so the tests drive the Chrome already installed on the
-    // machine. Close enough for smoke tests: it is the same major version, and
-    // the alternative is no browser testing at all.
+    // machine. Same major version, and the alternative is no browser testing.
     channel: 'chrome',
   },
 
-  // Only start a dev server when testing locally. Against the deployed site
-  // there is nothing to start.
-  webServer: origin
-    ? undefined
-    : {
-        command: 'npm run dev',
-        url: 'http://localhost:5173',
-        reuseExistingServer: true,
-        timeout: 60_000,
-        // Stops Vite opening a browser window every time the tests run.
-        env: { PIP_NO_OPEN: '1' },
-      },
+  webServer: server(),
 });
