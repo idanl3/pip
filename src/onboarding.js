@@ -131,6 +131,14 @@ function renumber() {
   document.querySelector('#add-child').classList.toggle('hidden', blocks.length >= MAX_CHILDREN);
 }
 
+document.querySelector('#add-child').addEventListener('click', () => {
+  const block = addChild();
+  // Put the cursor where they are going to type next. Without this the new
+  // block appears below the fold on a phone and looks like nothing happened.
+  block.querySelector('.js-name').focus();
+  block.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+
 // Keep the heading in step with the name as it is typed, so a parent scanning
 // a long form can tell the blocks apart.
 childrenHost.addEventListener('input', (event) => {

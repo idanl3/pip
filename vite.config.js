@@ -70,7 +70,9 @@ export default defineConfig(({ mode, command }) => {
 
   return {
     appType: 'mpa',
-    server: { port: 5173, open: true },
+    // Opens a browser for convenience, except when the test harness starts
+    // the server itself and would rather not have a window appear.
+    server: { port: 5173, open: !process.env.PIP_NO_OPEN },
 
     plugins: [
       {

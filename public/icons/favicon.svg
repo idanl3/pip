@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pip">
+  <!-- Pip's blob, in its own warm palette. Deliberately not a circle: the
+       shape the children recognise is organic and slightly lopsided. -->
+  <defs>
+    <radialGradient id="warm" cx="34%" cy="28%" r="78%">
+      <stop offset="0" stop-color="#ffc182" />
+      <stop offset="0.55" stop-color="#ffb26b" />
+      <stop offset="1" stop-color="#ff7f63" />
+    </radialGradient>
+  </defs>
+  <path
+    fill="url(#warm)"
+    d="M33.4 3.2c15.6-.6 27.8 10.4 27.3 26.2-.5 16.6-11.4 29.1-27.9 31.3C17.2 62.7 3.4 51.6 2.6 35.6
+       1.8 19 15.9 3.8 33.4 3.2Z"
+  />
+</svg>
