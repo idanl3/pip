@@ -92,7 +92,9 @@ The CLI is deliberately **not linked** to the project. See decision 12.
 | --- | --- |
 | `load-env.ps1` | Dot-source first. Refreshes PATH, loads `.env`, builds `PIP_DB_URL` |
 | `test-rls.ps1` | Attacks the schema with two real accounts. Run after any policy change |
-| `npm test` | Playwright, in a real browser. Walks the whole join-and-onboard journey |
+| `npm test` | Browser suite against the dev server. Fast; sees **no** policy |
+| `npm run test:built` | Builds, serves `dist/`, tests that. **Sees the real policy — run before committing** |
+| `npm run test:live` | Same suite against the deployed site. The only way to catch a stale deploy |
 | `verify-deploy.ps1` | Checks the **live** site really works. Run before asking anyone to test |
 | `new-invite.ps1` | Creates an invitation and prints the link. For the bootstrap case |
 | `make-admin.ps1` | Puts an account on the admin roster. Only route in — that table is API-unreachable |
@@ -143,6 +145,25 @@ Each of these cost time. Don't rediscover them.
   directly** rather than guessing which scope to add. Call the endpoints with
   `Authorization: Bearer $env:SUPABASE_ACCESS_TOKEN` and see which ones 403.
   That turned a guessing game into a two-minute answer.
+- **PowerShell 5.1 corrupts files two different ways.** `-Encoding utf8`
+  writes a **BOM**, and Vite's JSON loader rejects it — that broke the build
+  both locally and in CI, with `Unexpected token ''`. npm tolerates a BOM, so
+  `npm test` kept working and nothing complained. Then `-Encoding ascii`
+  turned an em dash into question marks. **Don't hand-edit JSON from a shell.**
+  If you must write a file, use
+  `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding $false))`.
+- **Inline `style=""` attributes are blocked by the policy and silently do
+  nothing.** `style-src 'self'` refuses them; the browser logs "the action has
+  been blocked" and the style never applies. It looks perfectly fine on the dev
+  server, which injects no policy, and is quietly wrong in production. Use a
+  class. Setting styles from JavaScript is fine — the policy governs markup
+  attributes and `<style>` elements, not CSSOM.
+- **`frame-ancestors` cannot be delivered in a meta tag.** It is ignored and
+  logs an error. Removed. The consequence is honest: this site cannot stop
+  itself being framed, and fixing that needs a host that can send headers.
+- **`npm run test:built` leaves a preview server on port 4173** if a run is
+  interrupted, and the next run then refuses to start. Free it with
+  `Get-NetTCPConnection -LocalPort 4173 -State Listen` and `Stop-Process`.
 - **An interactive element can render perfectly and do nothing at all.** The
   "Add another child" button was written with no click handler; the only code
   touching it adjusted its visibility. It looked enabled and was inert. To find
