@@ -1,0 +1,3 @@
+# Pip is a private pilot. Not for indexing.
+User-agent: *
+Disallow: /

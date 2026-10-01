@@ -1,0 +1,134 @@
+/* Pip — design tokens and the holding page.
+   The palette is warm and soft on purpose: it belongs to Pip, not to any
+   platform we happen to be built on. The kids' blob reuses these colours. */
+
+:root {
+  --pip-cream:     #fff6ec;
+  --pip-sand:      #fde8d3;
+  --pip-coral:     #ff8a6b;
+  --pip-apricot:   #ffb26b;
+  --pip-rose:      #f4789a;
+  --pip-teal:      #4fc3b1;
+  --pip-plum:      #3d2b3f;
+  --pip-plum-soft: #6b5668;
+
+  --pip-radius: 1.25rem;
+  --pip-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--pip-cream);
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, var(--pip-sand), transparent 70%),
+    radial-gradient(50rem 35rem at 100% 100%, #ffe6ef, transparent 70%);
+  color: var(--pip-plum);
+  font-family: var(--pip-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Holding page ------------------------------------------------------ */
+
+.holding {
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.5rem;
+}
+
+.holding__card {
+  max-width: 26rem;
+  text-align: center;
+}
+
+.holding__title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(2.75rem, 12vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.holding__tagline {
+  margin: 0 0 2.5rem;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  color: var(--pip-plum-soft);
+}
+
+.holding__note {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--pip-plum-soft);
+  opacity: 0.75;
+}
+
+/* --- The blob ----------------------------------------------------------
+   A CSS stand-in for the real thing. Phase 4 replaces this with a blob that
+   reacts to the audio levels from the ElevenLabs SDK. The shape and feel are
+   what we're establishing here. */
+
+.blob {
+  position: relative;
+  width: clamp(8rem, 40vw, 11rem);
+  aspect-ratio: 1;
+  margin: 0 auto 2.25rem;
+  filter: drop-shadow(0 1.25rem 2rem rgb(255 138 107 / 0.25));
+}
+
+.blob__layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 42% 58% 61% 39% / 47% 41% 59% 53%;
+  animation: blob-drift 14s ease-in-out infinite;
+}
+
+.blob__layer--1 {
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--pip-apricot),
+    var(--pip-coral) 72%
+  );
+}
+
+.blob__layer--2 {
+  background: radial-gradient(circle at 70% 38%, var(--pip-rose), transparent 62%);
+  opacity: 0.6;
+  animation-delay: -4.6s;
+}
+
+.blob__layer--3 {
+  background: radial-gradient(circle at 48% 74%, var(--pip-teal), transparent 58%);
+  opacity: 0.5;
+  animation-delay: -9.2s;
+}
+
+@keyframes blob-drift {
+  0%,
+  100% {
+    border-radius: 42% 58% 61% 39% / 47% 41% 59% 53%;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    border-radius: 60% 40% 38% 62% / 55% 60% 40% 45%;
+    transform: rotate(5deg) scale(1.04);
+  }
+  66% {
+    border-radius: 36% 64% 55% 45% / 40% 52% 48% 60%;
+    transform: rotate(-4deg) scale(0.97);
+  }
+}
+
+/* Children who need calm, and anyone who asked the OS for less motion,
+   get a much slower drift rather than nothing at all. */
+@media (prefers-reduced-motion: reduce) {
+  .blob__layer {
+    animation-duration: 45s;
+  }
+}

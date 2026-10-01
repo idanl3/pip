@@ -1,0 +1,26 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Dependencies and build output
+node_modules/
+dist/
+.vite/
+
+# Supabase CLI working files
+supabase/.temp/
+supabase/.branches/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log
+
+# The agent instructions are deliberately kept out of this public repository
+# until the family profile inside them is replaced by database-driven
+# variables. They still contain real children's names, ages and personality
+# notes. They live on the owner's machine and join the repository in phase 3
+# as templates. See CLAUDE.md section 12.
+pip-mediator-instructions.md
+pip-mediator-instructions-he.md

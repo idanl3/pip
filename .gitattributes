@@ -1,0 +1,14 @@
+# Normalise line endings. The repository stores LF; the Linux build in CI
+# reads files like .nvmrc literally, and a stray CR breaks them.
+* text=auto eol=lf
+
+# Binary assets must never be touched.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.mp3  binary
+*.wav  binary
