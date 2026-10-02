@@ -51,13 +51,58 @@
 
 /* --- PIN ----------------------------------------------------------------- */
 
-.pip__pin {
-  font-size: 2rem;
-  text-align: center;
-  letter-spacing: 0.5em;
-  padding-block: 0.6rem;
-  /* The letter-spacing pushes the text off-centre; this pulls it back. */
-  text-indent: 0.5em;
+/* Dots rather than digits. This screen is used with children standing right
+   next to it, and a PIN typed into a visible field is not a PIN for long. */
+.pip__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 1.1rem;
+  margin-block: 1.25rem 0.5rem;
+}
+
+.pip__dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  background: var(--pip-coral);
+}
+
+/* An on-screen keypad, because this lives on a family tablet where a text
+   field summons a keyboard over half the screen. Big targets: the parent is
+   often holding a crying child with the other arm. */
+.pip__keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  max-width: 17rem;
+  margin: 1rem auto 1.5rem;
+}
+
+.pip__keypad button {
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 0.85rem 0;
+  border: 1.5px solid #e4d2c0;
+  border-radius: 0.9rem;
+  background: #fff;
+  color: var(--pip-plum);
+  cursor: pointer;
+  /* Stops a double tap zooming the page on iOS mid-PIN. */
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.pip__keypad button:active {
+  background: var(--pip-sand);
+}
+
+.pip__keypad .pip__key--quiet {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--pip-plum-soft);
+  background: transparent;
 }
 
 /* --- The live screen ----------------------------------------------------- */

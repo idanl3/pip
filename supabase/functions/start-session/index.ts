@@ -84,6 +84,91 @@ Deno.serve(async (request) => {
     );
   }
 
+  /* --- minutes ------------------------------------------------------------ */
+
+  const { data: usage } = await asService
+    .from('family_usage')
+    .select('minutes_used, monthly_minute_limit')
+    .eq('family_id', family.id)
+    .maybeSingle();
+
+  const used = usage?.minutes_used ?? 0;
+  const limit = usage?.monthly_minute_limit ?? family.monthly_minute_limit;
+  const remaining = limit - used;
+
+  if (remaining <= 0) {
+    return refuse(
+      'no_minutes',
+      `You have used this month's ${limit} minutes. They reset on the first of the month, or ask Idan for more.`,
+      origin,
+      429,
+    );
+  }
+
+  /* --- what the agent is told --------------------------------------------- */
+
+  const body = await request.json().catch(() => ({}));
+  const requestedIds: string[] = Array.isArray(body?.child_ids) ? body.child_ids : [];
+
+  // A cousin, a friend, a sibling nobody added. Pip is told plainly that it
+  // does not know this child, which triggers the rule in the prompt telling it
+  // to ask their name and age rather than assume a profile fits them.
+  const includeOther = body?.include_other === true;
+
+  const { data: children } = await asService
+    .from('children')
+    .select('id, first_name, age, personality, conflict_tendency')
+    .eq('family_id', family.id)
+    .order('sort_order');
+
+  const all = children ?? [];
+  const involved = requestedIds.length ? all.filter((c) => requestedIds.includes(c.id)) : [];
+
+  // "Someone else" on its own is allowed: two visiting cousins is a real
+  // Tuesday, and Pip will ask both of them who they are.
+  if (involved.length === 0 && !includeOther) {
+    return refuse('no_children', 'Please choose who is involved.', origin, 400);
+  }
+
+  const dynamicVariables = {
+    // One line per child, in the shape the prompt already expects.
+    children: all
+      .map((c) => {
+        const bits = [`Name: ${c.first_name}, age ${c.age}.`];
+        if (c.personality) bits.push(`Personality: ${c.personality}.`);
+        if (c.conflict_tendency) bits.push(`Tends to: ${c.conflict_tendency}.`);
+        return bits.join(' ');
+      })
+      .join('\n'),
+
+    parent_names: joinNames(family.parent_names ?? []),
+    children_in_session: describeWhoIsHere(involved.map((c) => c.first_name), includeOther),
+
+    // Names alone, for the greeting the agent speaks before the model runs.
+    // children_in_session carries a whole sentence and cannot be said aloud;
+    // this is the part that can. "there" covers a session of visiting
+    // children whose names nobody has told us yet.
+    greeting_names: involved.length ? joinNames(involved.map((c) => c.first_name)) : 'there',
+    recurring_conflicts: family.recurring_conflicts || 'none noted',
+    house_rules: family.house_rules || 'none noted',
+    extra_care: family.extra_care || 'nothing noted',
+  };
+
+  /* --- preview ------------------------------------------------------------ */
+
+  // Answers "what would Pip be told" without spending anything: no token, no
+  // session row, no minutes. Useful to the screen, which can show the parent
+  // who Pip will know before they commit, and useful to the tests, which were
+  // asking for three real tokens per run just to inspect a string and hit
+  // ElevenLabs' rate limit doing it.
+  if (body?.preview === true) {
+    return json(
+      { preview: true, dynamic_variables: dynamicVariables, minutes_remaining: remaining },
+      200,
+      origin,
+    );
+  }
+
   /* --- sweep up anything abandoned ---------------------------------------- */
 
   // A session whose browser was closed mid-conversation, or crashed, leaves a
@@ -124,27 +209,6 @@ Deno.serve(async (request) => {
     );
   }
 
-  /* --- minutes ------------------------------------------------------------ */
-
-  const { data: usage } = await asService
-    .from('family_usage')
-    .select('minutes_used, monthly_minute_limit')
-    .eq('family_id', family.id)
-    .maybeSingle();
-
-  const used = usage?.minutes_used ?? 0;
-  const limit = usage?.monthly_minute_limit ?? family.monthly_minute_limit;
-  const remaining = limit - used;
-
-  if (remaining <= 0) {
-    return refuse(
-      'no_minutes',
-      `You have used this month's ${limit} minutes. They reset on the first of the month, or ask Idan for more.`,
-      origin,
-      429,
-    );
-  }
-
   /* --- rate limit --------------------------------------------------------- */
 
   // Not about abuse by these families. It is about a bug on our side, or a
@@ -165,44 +229,6 @@ Deno.serve(async (request) => {
     );
   }
 
-  /* --- what the agent is told --------------------------------------------- */
-
-  const body = await request.json().catch(() => ({}));
-  const requestedIds: string[] = Array.isArray(body?.child_ids) ? body.child_ids : [];
-  const parentContext = typeof body?.context === 'string' ? body.context.trim().slice(0, 300) : '';
-
-  const { data: children } = await asService
-    .from('children')
-    .select('id, first_name, age, personality, conflict_tendency')
-    .eq('family_id', family.id)
-    .order('sort_order');
-
-  const all = children ?? [];
-  const involved = requestedIds.length ? all.filter((c) => requestedIds.includes(c.id)) : all;
-
-  if (involved.length === 0) {
-    return refuse('no_children', 'Please choose who is involved.', origin, 400);
-  }
-
-  const dynamicVariables = {
-    // One line per child, in the shape the prompt already expects.
-    children: all
-      .map((c) => {
-        const bits = [`Name: ${c.first_name}, age ${c.age}.`];
-        if (c.personality) bits.push(`Personality: ${c.personality}.`);
-        if (c.conflict_tendency) bits.push(`Tends to: ${c.conflict_tendency}.`);
-        return bits.join(' ');
-      })
-      .join('\n'),
-
-    parent_names: joinNames(family.parent_names ?? []),
-    children_in_session: joinNames(involved.map((c) => c.first_name)),
-    parent_context: parentContext || 'nothing was said in advance',
-    recurring_conflicts: family.recurring_conflicts || 'none noted',
-    house_rules: family.house_rules || 'none noted',
-    extra_care: family.extra_care || 'nothing noted',
-  };
-
   /* --- the token ---------------------------------------------------------- */
 
   const tokenUrl = new URL('https://api.elevenlabs.io/v1/convai/conversation/token');
@@ -213,6 +239,19 @@ Deno.serve(async (request) => {
     // The status, never the body: an error body from a voice API is exactly
     // the kind of thing that ends up containing more than you expected.
     logLine('token_failed', { status: tokenResponse.status, family: family.id });
+
+    // A rate limit is worth saying out loud. It is temporary, it is nobody's
+    // fault, and "wait a moment" is the right advice - whereas for a real
+    // outage trying again immediately is not. ElevenLabs answers 429 with an
+    // empty body, so the status is all there is to go on.
+    if (tokenResponse.status === 429) {
+      return refuse(
+        'voice_busy',
+        'Pip is busy at the moment. Please wait a minute and try again.',
+        origin,
+        429,
+      );
+    }
     return refuse('voice', 'Pip could not be reached just now. Please try again.', origin, 502);
   }
 
@@ -262,6 +301,25 @@ Deno.serve(async (request) => {
     origin,
   );
 });
+
+/**
+ * Who Pip is talking to, in a sentence it can act on.
+ *
+ * The names matter because Pip is told to greet them without asking who they
+ * are — the parent has just said, and asking again wastes the first thirty
+ * seconds of a mediation on admin. The unknown child is spelled out rather
+ * than left off, because Pip needs to know to ask that one child their name
+ * and age, and only that child.
+ */
+function describeWhoIsHere(names: string[], includeOther: boolean): string {
+  const known = joinNames(names);
+
+  if (!includeOther) return known;
+  if (names.length === 0) {
+    return 'one or more children who are not in the profile above, so you do not know them yet';
+  }
+  return `${known}, and also a child who is not in the profile above, so you do not know that one yet`;
+}
 
 /** "Mom", "Mom and Abba", "Negev, Nina and Mai". */
 function joinNames(names: string[]): string {

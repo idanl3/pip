@@ -111,7 +111,7 @@ Check 'refused with no minutes' ($r.body.error -eq 'no_minutes') "got $($r.statu
 '=== approved, with minutes ==='
 Sql "update public.families set monthly_minute_limit=120 where id='$famId'" | Out-Null
 $kidIds = Sql "select id from public.children where family_id='$famId' order by sort_order"
-$r = Call 'start-session' $jwt @{ child_ids = @($kidIds[0].id); context = 'They are fighting over the tablet.' }
+$r = Call 'start-session' $jwt @{ child_ids = @($kidIds[0].id) }
 
 Check 'a session starts' ($r.status -eq 200) "got $($r.status) $($r.raw)"
 if ($r.status -eq 200) {
@@ -124,7 +124,6 @@ if ($r.status -eq 200) {
   Check 'both children are in the profile' ($v.children -match 'Alef' -and $v.children -match 'Bet') "got: $($v.children)"
   Check 'only the chosen child is in this session' ($v.children_in_session -eq 'Alef') "got: $($v.children_in_session)"
   Check 'parent names joined readably' ($v.parent_names -eq 'Mum and Dad') "got: $($v.parent_names)"
-  Check 'the parent context came through' ($v.parent_context -match 'tablet') "got: $($v.parent_context)"
   Check 'empty fields get wording, not blanks' ($v.extra_care -eq 'nothing noted') "got: $($v.extra_care)"
 
   $row = Sql "select conversation_id, agent_id, ended_at from public.sessions where id='$($r.body.session_id)'"
@@ -135,8 +134,38 @@ if ($r.status -eq 200) {
 }
 
 ''
+'=== what Pip is told about who is here ==='
+# The whole point of the selection screen: the names have to reach the agent,
+# or Pip opens by asking something the parent just answered.
+#
+# These use preview, which runs every check and formats the profile without
+# requesting a token. Asking for three real tokens per run just to inspect a
+# string hit ElevenLabs' rate limit and took the whole suite down with it.
+
+$both = Call 'start-session' $jwt @{ child_ids = @($kidIds[0].id, $kidIds[1].id); preview = $true }
+Check 'a preview issues no token' ($both.body.preview -eq $true -and $null -eq $both.body.token) 'a token was issued anyway'
+Check 'both chosen children are named' ($both.body.dynamic_variables.children_in_session -eq 'Alef and Bet') "got: $($both.body.dynamic_variables.children_in_session)"
+Check 'the spoken greeting gets names only' ($both.body.dynamic_variables.greeting_names -eq 'Alef and Bet') "got: $($both.body.dynamic_variables.greeting_names)"
+
+$guest = Call 'start-session' $jwt @{ child_ids = @($kidIds[0].id); include_other = $true; preview = $true }
+$desc = $guest.body.dynamic_variables.children_in_session
+Check 'a visiting child is spelled out as unknown' ($desc -match 'Alef' -and $desc -match 'not in the profile') "got: $desc"
+Check 'the greeting still uses the known name' ($guest.body.dynamic_variables.greeting_names -eq 'Alef') "got: $($guest.body.dynamic_variables.greeting_names)"
+
+$onlyGuests = Call 'start-session' $jwt @{ include_other = $true; preview = $true }
+Check 'visiting children alone is allowed' ($onlyGuests.status -eq 200) "got $($onlyGuests.status) $($onlyGuests.raw)"
+Check 'and Pip is told it knows nobody' ($onlyGuests.body.dynamic_variables.children_in_session -match 'not in the profile') "got: $($onlyGuests.body.dynamic_variables.children_in_session)"
+Check 'the greeting falls back to there' ($onlyGuests.body.dynamic_variables.greeting_names -eq 'there') "got: $($onlyGuests.body.dynamic_variables.greeting_names)"
+Check 'the parent context variable is gone' ($null -eq $onlyGuests.body.dynamic_variables.parent_context) 'parent_context is still being sent'
+
+$stillOne = (Sql "select count(*)::int as n from public.sessions where family_id='$famId' and ended_at is null")[0].n
+Check 'a preview opened no session' ($stillOne -eq 1) "$stillOne open sessions"
+
+''
 '=== only one at a time ==='
-$again = Call 'start-session' $jwt @{ }
+# A real selection, so this reaches the one-session gate rather than being
+# turned away earlier for choosing nobody.
+$again = Call 'start-session' $jwt @{ child_ids = @($kidIds[0].id) }
 Check 'a second start is refused' ($again.body.error -eq 'already_running') "got $($again.status) $($again.body.error)"
 
 ''

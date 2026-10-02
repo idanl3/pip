@@ -27,6 +27,14 @@ import {
 
 const PIN = '481902';
 
+/** Taps a PIN into the on-screen keypad. */
+async function typePin(page, digits) {
+  await page.click('#keypad button[data-key="clear"]');
+  for (const digit of digits) {
+    await page.click(`#keypad button[data-key="${digit}"]`);
+  }
+}
+
 test.afterAll(cleanupTestData);
 
 /** An approved family with two children, ready to start a session. */
@@ -69,28 +77,31 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
   await expect(page.locator('#stage-pin')).toBeVisible();
   await expect(page.locator('#pin-heading')).toHaveText(/choose a parent pin/i);
 
-  await page.fill('#pin', '1111');
+  await typePin(page, '1111');
   await page.click('#pin-submit');
   await expect(page.locator('#pin-error')).toContainText(/same digit/i);
 
-  await page.fill('#pin', '1234');
+  await typePin(page, '1234');
   await page.click('#pin-submit');
   await expect(page.locator('#pin-error')).toContainText(/run of digits/i);
 
-  await page.fill('#pin', PIN);
+  // Dots, never digits: children are standing next to this screen.
+  await typePin(page, PIN);
+  await expect(page.locator('#pin-dots .pip__dot')).toHaveCount(PIN.length);
   await page.click('#pin-submit');
   await expect(page.locator('#stage-setup')).toBeVisible();
 
   // --- choosing who -------------------------------------------------------
-  await expect(page.locator('#who .chip')).toHaveCount(2);
+  // Two children plus "Someone else", for a cousin or a friend.
+  await expect(page.locator('#who .chip')).toHaveCount(3);
   await expect(page.locator('#who')).toContainText('Alef (9)');
+  await expect(page.locator('#who')).toContainText('Someone else');
 
   await page.click('#start');
   await expect(page.locator('#notice')).toContainText(/tap who needs help/i);
 
   await page.locator('#who .chip', { hasText: 'Alef' }).click();
   await page.locator('#who .chip', { hasText: 'Bet' }).click();
-  await page.fill('#context', 'They are fighting over the Lego tower.');
 
   // --- the conversation ---------------------------------------------------
   await page.click('#start');
@@ -126,13 +137,8 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
   expect(open[0].conversation_id, 'no conversation id was stored').toBeTruthy();
 
   // --- the parent finishes it --------------------------------------------
-  // The finish button is PIN-gated, so a child pressing it does nothing.
-  page.once('dialog', (dialog) => dialog.accept('000000'));
-  await page.click('#end');
-  await expect(page.locator('#notice')).toContainText(/not the PIN/i);
-  await expect(page.locator('#stage-live')).toBeVisible();
-
-  page.once('dialog', (dialog) => dialog.accept(PIN));
+  // No PIN on the way out. Asking for one left Pip talking and listening while
+  // it was typed, which is the wrong behaviour and billed by the minute.
   await page.click('#end');
 
   await expect(page.locator('#stage-done')).toBeVisible({ timeout: 15_000 });
@@ -151,7 +157,7 @@ test('a returning parent is asked for the PIN, not to set one', async ({ page })
   await approvedFamily(page);
 
   await page.goto('/pip.html');
-  await page.fill('#pin', PIN);
+  await typePin(page, PIN);
   await page.click('#pin-submit');
   await expect(page.locator('#stage-setup')).toBeVisible();
 
@@ -160,11 +166,11 @@ test('a returning parent is asked for the PIN, not to set one', async ({ page })
   await page.reload();
   await expect(page.locator('#pin-heading')).toHaveText(/^parent pin$/i);
 
-  await page.fill('#pin', '999999');
+  await typePin(page, '999999');
   await page.click('#pin-submit');
   await expect(page.locator('#pin-error')).toContainText(/not the PIN/i);
 
-  await page.fill('#pin', PIN);
+  await typePin(page, PIN);
   await page.click('#pin-submit');
   await expect(page.locator('#stage-setup')).toBeVisible();
 

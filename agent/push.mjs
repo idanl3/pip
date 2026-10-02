@@ -52,8 +52,9 @@ const DEFAULTS = {
   children:
     'No profile was provided for this conversation. Ask each child their name and roughly how old they are, warmly and briefly, before you begin.',
   parent_names: 'your grown-up',
-  children_in_session: 'not specified - ask who was part of what happened',
-  parent_context: 'nothing was said in advance',
+  children_in_session:
+    'nobody was named, so you do not know who is here - ask each child their name and roughly how old they are',
+  greeting_names: 'there',
   recurring_conflicts: 'none noted',
   house_rules: 'none noted',
   extra_care: 'nothing noted',
@@ -74,6 +75,20 @@ const END_CALL = {
  * to be missing its entire ending section without anyone noticing, so they
  * belong here with the reasons attached.
  */
+/**
+ * The line the agent speaks before the model runs.
+ *
+ * It used to end with "can each of you tell me your name?", which wasted the
+ * opening of every mediation asking something the parent had just answered on
+ * the previous screen. Greeting children by name is also the fastest way to
+ * tell them this thing knows who they are.
+ *
+ * {{greeting_names}} is names only. children_in_session is a sentence and
+ * cannot be said out loud.
+ */
+const FIRST_MESSAGE =
+  "Hi {{greeting_names}}! I'm Pip. I heard something tricky happened, and I'm here to help you figure it out.";
+
 const SETTINGS = {
   // Fifteen minutes. Ten was not headroom: a real session was found cut off
   // mid-mediation at exactly 600 seconds, with a child speaking at 9:42 and
@@ -108,7 +123,10 @@ if (/Name: \w+, age \d+\. Personality:/.test(prompt)) {
   process.exit(1);
 }
 
-const declared = new Set([...prompt.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]));
+const declared = new Set(
+  [...`${prompt}
+${FIRST_MESSAGE}`.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]),
+);
 const missing = [...declared].filter((name) => !(name in DEFAULTS));
 if (missing.length) {
   console.error(`Refusing to push: no default for ${missing.join(', ')}.`);
@@ -152,6 +170,7 @@ const body = {
         built_in_tools: { ...before.conversation_config.agent.prompt.built_in_tools, end_call: END_CALL },
       },
       dynamic_variables: { dynamic_variable_placeholders: DEFAULTS },
+      first_message: FIRST_MESSAGE,
     },
     conversation: { max_duration_seconds: SETTINGS.maxDurationSeconds },
     turn: { silence_end_call_timeout: SETTINGS.silenceEndCallSeconds },
@@ -176,6 +195,11 @@ const checks = [
   ['prompt matches the repository', live.prompt === prompt],
   ['end_call is enabled', Boolean(live.built_in_tools?.end_call)],
   ['all variables have defaults', [...declared].every((n) => n in placeholders)],
+  ['the first message is ours', after.conversation_config.agent.first_message === FIRST_MESSAGE],
+  [
+    'the first message no longer asks for names',
+    !/tell me your name/i.test(after.conversation_config.agent.first_message ?? ''),
+  ],
   ['no child profile in the live prompt', !/Name: \w+, age \d+\. Personality:/.test(live.prompt)],
   ['model unchanged', live.llm === before.conversation_config.agent.prompt.llm],
   ['voice unchanged', after.conversation_config.tts.voice_id === before.conversation_config.tts.voice_id],
