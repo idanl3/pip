@@ -5,15 +5,22 @@
 .pip {
   min-height: 100vh;
   min-height: 100dvh; /* phones, where the toolbar steals the last 10% */
-  display: grid;
-  place-items: center;
+  /* A flex column with auto margins on the stage, rather than grid centring
+     with overflow hidden. Centred when there is room, and when there is not -
+     a short phone once Chrome's address bar has taken its cut - the auto
+     margins collapse to nothing and the page scrolls instead of quietly
+     cutting the keypad off at both ends. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .pip__stage {
   width: 100%;
+  margin-block: auto;
   display: grid;
   place-items: center;
 }
@@ -29,14 +36,14 @@
 
 .pip__heading {
   margin: 0 0 0.35rem;
-  font-size: 1.6rem;
+  font-size: clamp(1.45rem, 6vw, 1.7rem);
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 .pip__aside {
-  margin-block-start: 1.25rem;
-  font-size: 0.9375rem;
+  margin-block-start: 1rem;
+  font-size: 0.875rem;
   color: var(--pip-plum-soft);
 }
 
@@ -49,6 +56,11 @@
   margin-inline: auto;
 }
 
+.pip__retry {
+  display: flex;
+  margin: 0.75rem auto 0;
+}
+
 /* --- PIN ----------------------------------------------------------------- */
 
 /* Dots rather than digits. This screen is used with children standing right
@@ -58,7 +70,7 @@
   justify-content: center;
   gap: 0.6rem;
   min-height: 1.1rem;
-  margin-block: 1.25rem 0.5rem;
+  margin-block: 1rem 0.5rem;
 }
 
 .pip__dot {
@@ -74,16 +86,20 @@
 .pip__keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
-  max-width: 17rem;
-  margin: 1rem auto 1.5rem;
+  gap: 0.65rem;
+  /* Was capped at 17rem, which on a phone left the keypad using two thirds of
+     the width with a margin of nothing either side. It now takes what the
+     panel gives it. */
+  width: min(20rem, 100%);
+  margin: 0.9rem auto 1.25rem;
 }
 
 .pip__keypad button {
   font: inherit;
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 6.5vw, 1.85rem);
   font-weight: 700;
-  padding: 0.85rem 0;
+  min-height: 3.25rem;
+  padding: 0.55rem 0;
   border: 1.5px solid #e4d2c0;
   border-radius: 0.9rem;
   background: #fff;
@@ -139,7 +155,8 @@
   justify-self: center;
   font: inherit;
   font-size: 0.9375rem;
-  padding: 0.5rem 1.1rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 999px;
   border: 1.5px solid #e4d2c0;
   background: transparent;

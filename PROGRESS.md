@@ -52,7 +52,7 @@ the scheduled job that also keeps the free-tier project awake.
 | 1 | Project setup, Pages, domain | **Done** |
 | 2 | Accounts and onboarding | **Done.** Invite links, login, onboarding form, admin approval screen |
 | 3 | Agent templating | **Done.** Prompt templated and pushed, seven variables with defaults, `end_call` enabled, privacy fixed |
-| 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone. Launch screen is one Start button; the parent area is a separate PIN-gated portal |
+| 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone. Launch screen is one Start button; the parent area is a separate PIN-gated portal. Sized and tested for a phone |
 | 5 | Minute tracking and limits | Not started |
 | 6 | Encryption and recaps | Not started |
 | 7 | Safety alert and polish | Not started. Hebrew review is out of scope for now |
@@ -303,6 +303,25 @@ Each of these cost time. Don't rediscover them.
   JWT. It belongs in the `apikey` header; `Bearer` carries a user's session JWT.
 
 ---
+
+**A green test suite says nothing about permissions.** Playwright runs Chrome
+with `--use-fake-ui-for-media-stream`, which grants the microphone without
+asking. That is what lets a test hold a real conversation, and it also means
+the suite cannot see a permission prompt that never appears. The owner's
+Android phone found that in one tap. Anything permission-shaped has to be
+tested on a real device.
+
+**Ask for the microphone inside the tap.** Chrome on Android expires the user
+activation from a tap after a few seconds, and then refuses `getUserMedia`
+outright instead of prompting. Any network call between the tap and the request
+- ours took an auth call, an edge function and a possible cold start - is
+enough. `pip.js` asks first and stops the track immediately; see decision 27.
+
+**Test at a phone viewport or do not claim it works on a phone.** Every test
+ran at a desktop size for four phases. At 360px wide, plain links were 21px
+tall, chips 32px, and the PIN keypad used two thirds of the screen.
+`tests/mobile.spec.js` now asserts 44px minimums and no horizontal overflow on
+every screen.
 
 **A hidden ancestor is not a hidden element, and `renumber()` will undo you.**
 One-child mode hides the family-wide questions by adding `hidden` to two

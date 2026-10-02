@@ -108,8 +108,12 @@ input[type='number'],
 textarea,
 select {
   width: 100%;
+  /* font: inherit keeps this at 16px, which matters beyond looks: iOS Safari
+     zooms the whole page in when a field smaller than 16px takes focus, and
+     does not zoom back out. */
   font: inherit;
   color: inherit;
+  min-height: 2.75rem;
   padding: 0.6rem 0.75rem;
   border: 1.5px solid #e4d2c0;
   border-radius: 0.65rem;
@@ -184,14 +188,18 @@ textarea[aria-invalid='true'] {
 }
 
 .chip span {
-  display: inline-block;
-  padding: 0.4rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.9rem;
   border: 1.5px solid #e4d2c0;
   border-radius: 999px;
   background: #fff;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.3;
   cursor: pointer;
+  /* Stops a quick second tap on a neighbouring chip zooming the page. */
+  touch-action: manipulation;
   user-select: none;
   transition: background-color 0.12s ease, border-color 0.12s ease;
 }
@@ -219,14 +227,30 @@ textarea[aria-invalid='true'] {
 
 /* --- Buttons ------------------------------------------------------------- */
 
+/* Everything tappable is at least 44px tall.
+   The owner opened this on an Android phone and had to pinch to hit things.
+   Measured at a 360px viewport, plain links were 21px and chips were 32px,
+   because .btn--link strips all padding and .chip was sized for a mouse. On a
+   phone a link is aimed at exactly like a button.
+
+   These are not a mobile breakpoint. They apply everywhere, because a 44px
+   control is not wrong on a desktop - it is just bigger. */
+
 .btn {
   font: inherit;
   font-weight: 700;
-  padding: 0.7rem 1.25rem;
+  /* inline-flex rather than the default, so min-height applies to the <a>
+     elements that wear this class as well as the buttons. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.25rem;
   border: 1.5px solid transparent;
   border-radius: 0.7rem;
   background: var(--pip-coral);
   color: #fff;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -240,7 +264,7 @@ textarea[aria-invalid='true'] {
 }
 
 .btn--block {
-  display: block;
+  display: flex;
   width: 100%;
 }
 
@@ -253,7 +277,10 @@ textarea[aria-invalid='true'] {
 .btn--link {
   background: none;
   border: none;
-  padding: 0;
+  /* No horizontal padding, so a link still lines up with the text above it,
+     but a full 44px of height to aim at. */
+  padding-inline: 0;
+  padding-block: 0.5rem;
   color: #b4502f;
   text-decoration: underline;
   font-weight: 600;
@@ -443,10 +470,13 @@ textarea[aria-invalid='true'] {
 }
 
 .launch__corner {
-  font-size: 0.9375rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-size: 1rem;
   color: var(--pip-plum-soft);
   text-decoration: none;
-  padding: 0.5rem 0.8rem;
+  padding: 0.5rem 1rem;
   border: 1.5px solid #ecdccb;
   border-radius: 999px;
   white-space: nowrap;
@@ -474,14 +504,17 @@ textarea[aria-invalid='true'] {
    holding a crying child with the other arm. */
 .launch__start {
   font: inherit;
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 7vw, 2rem);
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #fff;
   text-decoration: none;
   display: grid;
   place-items: center;
-  width: min(15rem, 62vw);
+  /* Takes up the screen it is the only thing on. At the old 15rem cap it sat
+     in the middle of a phone looking like a desktop dialog that had wandered
+     in, which is what "the stuff doesn't match the screen" meant. */
+  width: min(18rem, 70vw);
   aspect-ratio: 1;
   border: none;
   border-radius: 50%;

@@ -30,6 +30,7 @@ const notice = document.querySelector('#notice');
 const connectingLine = document.querySelector('#connecting');
 const announce = document.querySelector('#announce');
 const endButton = document.querySelector('#end');
+const retryButton = document.querySelector('#retry');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -38,9 +39,14 @@ let blob = null;
 let session = null;
 const transcript = [];
 
-function fail(message) {
+function fail(message, { offerRetry = false } = {}) {
   notice.textContent = message;
+  retryButton.classList.toggle('hidden', !offerRetry);
 }
+
+// Reloading is the only thing that re-asks for a permission the browser has
+// already answered, so this is a reload rather than a second attempt in place.
+retryButton.addEventListener('click', () => location.reload());
 
 /* --- is Pip talking? -----------------------------------------------------
 
@@ -95,23 +101,99 @@ function setConversationState(state) {
     explainer: 'So a session can only be started by you.',
   });
 
+  // The blob first, so there is something alive on screen behind the
+  // permission prompt rather than an empty page. Synchronous, so it costs the
+  // tap's user activation nothing.
+  showStage();
+
+  // The microphone, now, before anything slow happens.
+  try {
+    await askForMicrophone();
+  } catch (error) {
+    stageLive.classList.add('hidden');
+    blob?.stop();
+    blob = null;
+    fail(microphoneProblem(error), { offerRetry: true });
+    return;
+  }
+
   await startSession();
 })().catch((error) => fail(error.message));
 
-async function startSession() {
-  notice.textContent = '';
+/* --- the microphone ------------------------------------------------------
 
+   Asked for here rather than left to the voice SDK, which requests it only
+   after our edge function has issued a conversation token - a round trip, and
+   a cold start on a free plan.
+
+   On Android Chrome that is too late. The permission prompt needs the tap that
+   accepted the PIN to still count as user activation, and that expires in a
+   few seconds; past it Chrome refuses the request outright instead of asking.
+   The parent sees "allow it in your browser" having never been offered the
+   chance, which is exactly what happened on the owner's phone.
+
+   None of the browser tests could have caught it: they run Chrome with
+   --use-fake-ui-for-media-stream, which grants the microphone without asking
+   and therefore without caring when it was asked. */
+
+/**
+ * Asks, then hands the device straight back.
+ *
+ * Only the permission is wanted here, not the audio: the SDK opens its own
+ * capture a moment later and a granted microphone stays granted for the page.
+ * Holding the track open until then was the first attempt and is worse - some
+ * Android devices will not give the same microphone to a second capture, so
+ * keeping it would risk breaking the very thing this is fixing.
+ */
+async function askForMicrophone() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw Object.assign(new Error('no microphone API'), { name: 'NotSupportedError' });
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  for (const track of stream.getTracks()) track.stop();
+}
+
+/** Each of these is a different thing for a parent to do about it. */
+function microphoneProblem(error) {
+  switch (error?.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return (
+        'Pip needs the microphone. Tap the icon at the left of the address ' +
+        'bar, allow the microphone for this site, then try again.'
+      );
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No microphone was found on this device.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return (
+        'Something else is using the microphone. Close any other call or ' +
+        'recording app, then try again.'
+      );
+    case 'NotSupportedError':
+      return 'This browser cannot reach the microphone. Chrome or Safari will work.';
+    default:
+      return `The microphone could not be opened (${error?.name ?? 'unknown error'}).`;
+  }
+}
+
+/** The blob, running, before anything can go wrong. */
+function showStage() {
+  fail('');
   stageLive.classList.remove('hidden');
   connectingLine.classList.remove('hidden');
   stageLive.dataset.state = 'connecting';
   conversationState = null;
 
-  // The blob runs before the conversation connects, so the children see
-  // something alive during the handshake rather than a blank screen.
+  // The children see something alive during the permission prompt and the
+  // handshake, rather than a blank screen.
   blob = new PipBlob(document.querySelector('#blob'), { reducedMotion });
   blob.setState('idle');
   blob.start();
+}
 
+async function startSession() {
   session = new PipSession({
     onState: (state) => {
       if (state === 'connected') {
@@ -159,21 +241,38 @@ async function startSession() {
     await session.start();
   } catch (error) {
     blob?.stop();
+    blob = null;
     stageLive.classList.add('hidden');
-    fail(friendlyStartError(error));
+    fail(friendlyStartError(error), { offerRetry: isMicrophoneError(error) });
   }
 }
 
 /**
  * A refusal a parent can act on.
  *
- * The server already words these kindly; this adds the one thing it cannot
- * know, which is what the microphone did.
+ * This used to match /permission|denied/ against the message as well as the
+ * error name, which was far too wide. Any refusal that happened to use either
+ * word - a database policy declining a row, a token refused upstream - was
+ * reported to the parent as a microphone problem, so they went hunting through
+ * browser settings for something that was never wrong. The message now only
+ * mentions the microphone when the microphone is what failed.
  */
+const MICROPHONE_ERRORS = [
+  'NotAllowedError',
+  'NotFoundError',
+  'NotReadableError',
+  'SecurityError',
+  'OverconstrainedError',
+  'AbortError',
+  'NotSupportedError',
+];
+
+function isMicrophoneError(error) {
+  return MICROPHONE_ERRORS.includes(error?.name);
+}
+
 function friendlyStartError(error) {
-  if (error?.name === 'NotAllowedError' || /permission|denied/i.test(error?.message ?? '')) {
-    return 'Pip needs the microphone. Allow it in your browser, then open Pip again.';
-  }
+  if (isMicrophoneError(error)) return microphoneProblem(error);
   return error?.message ?? 'Pip could not start. Please try again.';
 }
 

@@ -597,3 +597,73 @@ it unless the caller passes `acceptHandoff`, which is off by default and is
 never passed on the kids' screen. A test seeds the token by hand and asserts
 `pip.html` still demands the PIN, because "never issued" and "ignored" are
 different guarantees and only the second one survives a refactor.
+
+
+## 27. The microphone is asked for inside the tap, not left to the SDK
+
+The owner opened Pip on an Android phone, tapped Start, and was told "Pip
+needs the microphone. Allow it in your browser" — having never been asked.
+
+The voice SDK requests the microphone itself, but only after our edge function
+has issued a conversation token: an auth call, a round trip, and a cold start
+on a free plan. Chrome on Android needs the tap that accepted the PIN to still
+count as user activation when the permission is requested, and that expires
+after a few seconds. Past it Chrome refuses outright rather than prompting, so
+the parent is told to fix something they were never offered.
+
+`pip.js` now calls `getUserMedia` itself, immediately after `requirePin`
+resolves — which `requirePin` deliberately does inside the accepting click, for
+exactly this reason — and stops the track at once. Only the permission was
+wanted; the SDK opens its own capture a moment later, and a granted microphone
+stays granted for the page.
+
+Rejected: holding the track open until the SDK connects. Some Android devices
+will not hand the same microphone to a second capture, so keeping it risks
+breaking the thing this is fixing.
+
+Rejected: fetching the conversation token while the parent types the PIN, so
+the SDK's own request lands inside the activation window. It would burn an
+ElevenLabs token, and create a session row, every time a parent opened the
+keypad and changed their mind.
+
+**No browser test could have caught this, and none can.** The suite runs Chrome
+with `--use-fake-ui-for-media-stream`, which grants the microphone without
+asking and therefore without caring when it was asked. That is also why the
+suite can hold a real conversation at all. Worth remembering before trusting a
+green run on anything permission-shaped.
+
+A second bug was sitting underneath. `friendlyStartError` matched
+`/permission|denied/` against the error *message* as well as its name, so any
+refusal that happened to use either word — a database policy declining a row, a
+token refused upstream — was reported to the parent as a microphone problem.
+It now checks the error name only.
+
+
+## 28. Everything tappable is at least 44px tall
+
+The same phone test found the interface could not comfortably be used.
+Measured at a 360px viewport: plain links were **21px** tall, because
+`.btn--link` strips all padding; chips were **32px**; text fields were 42px.
+
+All of them are now at least 44px, which is the smallest target a thumb finds
+reliably. This is not a mobile breakpoint — the sizes apply everywhere,
+because a 44px control is not wrong on a desktop, it is just bigger.
+
+Three related fixes went with it:
+
+- The PIN keypad was capped at `17rem`. On a phone it used two thirds of the
+  width with nothing either side, which is what "the stuff doesn't match the
+  screen" meant. It now takes the width the panel gives it, and the keys are
+  52px tall with a font that scales.
+- `.pip` centred its content inside `overflow: hidden`, so on a short screen
+  the keypad was cut off at *both* ends with no way to scroll to the rest. It
+  is now a flex column with `margin-block: auto` on the stage: centred when
+  there is room, scrollable when there is not.
+- Text fields keep `font: inherit`, which is 16px. That matters beyond looks —
+  iOS Safari zooms the whole page in when a field smaller than 16px takes
+  focus, and does not zoom back out.
+
+`tests/mobile.spec.js` runs every screen a family touches at 360×740 and
+asserts both properties: nothing wider than the screen, nothing tappable under
+44px. It is the only test in the suite that runs at a phone viewport, and the
+bugs it found had been live for four phases.

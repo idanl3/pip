@@ -23,7 +23,13 @@
          navigation. The tap that accepts the PIN is the tap the conversation
          opens from. -->
 
-    <div id="notice" class="notice notice--error pip__notice" role="alert"></div>
+    <!-- A refusal needs a way forward. On a phone, with a fight going on, a
+         parent who has just allowed the microphone in the address bar should
+         not have to work out that the page needs reloading. -->
+    <div class="pip__notice">
+      <div id="notice" class="notice notice--error" role="alert"></div>
+      <button type="button" id="retry" class="btn pip__retry hidden">Try again</button>
+    </div>
 
     <section id="stage-pin" class="pip__stage hidden"></section>
 
