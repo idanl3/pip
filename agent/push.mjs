@@ -83,11 +83,17 @@ const END_CALL = {
  * the previous screen. Greeting children by name is also the fastest way to
  * tell them this thing knows who they are.
  *
+ * It then has to end with a question. A fixed opening line is spoken and the
+ * agent waits: it does not carry on by itself. A greeting that merely stated
+ * why Pip was there left two children listening to silence, waiting for a
+ * turn nobody had offered them.
+ *
  * {{greeting_names}} is names only. children_in_session is a sentence and
  * cannot be said out loud.
  */
 const FIRST_MESSAGE =
-  "Hi {{greeting_names}}! I'm Pip. I heard something tricky happened, and I'm here to help you figure it out.";
+  "Hi {{greeting_names}}! I'm Pip, and I'm here to help you sort this out. " +
+  'Who wants to tell me what happened first?';
 
 const SETTINGS = {
   // Fifteen minutes. Ten was not headroom: a real session was found cut off
@@ -199,6 +205,10 @@ const checks = [
   [
     'the first message no longer asks for names',
     !/tell me your name/i.test(after.conversation_config.agent.first_message ?? ''),
+  ],
+  [
+    'the first message asks something, so the children know to answer',
+    (after.conversation_config.agent.first_message ?? '').trim().endsWith('?'),
   ],
   ['no child profile in the live prompt', !/Name: \w+, age \d+\. Personality:/.test(live.prompt)],
   ['model unchanged', live.llm === before.conversation_config.agent.prompt.llm],

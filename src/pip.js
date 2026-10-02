@@ -33,16 +33,15 @@ const stages = {
   pin: document.querySelector('#stage-pin'),
   setup: document.querySelector('#stage-setup'),
   live: document.querySelector('#stage-live'),
-  done: document.querySelector('#stage-done'),
 };
 
 const notice = document.querySelector('#notice');
 const whoHost = document.querySelector('#who');
 const minutesLine = document.querySelector('#minutes');
 const startButton = document.querySelector('#start');
-const statusLine = document.querySelector('#status');
+const connectingLine = document.querySelector('#connecting');
+const announce = document.querySelector('#announce');
 const endButton = document.querySelector('#end');
-const doneDetail = document.querySelector('#done-detail');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -223,39 +222,35 @@ async function submitPin() {
   show('setup');
 }
 
-/* --- the status line ----------------------------------------------------- */
+/* --- is Pip talking? -----------------------------------------------------
 
-/**
- * Keeps the words under the blob still.
- *
- * The agent's mode flips between listening and speaking far faster than a
- * person can read, so following it directly made the line flicker between the
- * two and look broken. Only a state that has held for a moment is worth
- * printing; the blob itself reacts immediately, which is where the real-time
- * signal belongs.
- *
- * "Thinking" never reaches the text at all. It is a transient the children do
- * not need and the parent cannot act on.
- */
-const STATUS_SETTLE_MS = 700;
-let settleTimer = null;
-let shownState = null;
+   Derived from whether Pip's audio is actually flowing, not from the SDK's
+   mode. The mode changes the moment the agent has finished *generating*, while
+   the audio is still playing out, so following it made the blob flip to
+   listening halfway through Pip's sentence and then back. Output volume is the
+   honest signal.
 
-function setStatus(state) {
-  if (state === 'ended') {
-    clearTimeout(settleTimer);
-    statusLine.textContent = 'Pip has stopped listening';
-    shownState = state;
-    return;
-  }
-  if (state !== 'listening' && state !== 'speaking') return;
-  if (state === shownState) return;
+   A short hold stops the gaps between words counting as silence. */
 
-  clearTimeout(settleTimer);
-  settleTimer = setTimeout(() => {
-    shownState = state;
-    statusLine.textContent = state === 'speaking' ? 'Pip is talking' : 'Pip is listening';
-  }, STATUS_SETTLE_MS);
+const SPEAKING_THRESHOLD = 0.012;
+const SPEAKING_HOLD_MS = 700;
+
+let lastHeardPip = 0;
+let conversationState = null;
+
+function updateStateFromLevels({ output }) {
+  if (output > SPEAKING_THRESHOLD) lastHeardPip = Date.now();
+  const speaking = Date.now() - lastHeardPip < SPEAKING_HOLD_MS;
+  setConversationState(speaking ? 'speaking' : 'listening');
+}
+
+function setConversationState(state) {
+  if (state === conversationState) return;
+  conversationState = state;
+  blob?.setState(state);
+  // Not shown to anyone; this is how the tests can see what the blob is doing
+  // now that there is deliberately no caption to read.
+  stages.live.dataset.state = state;
 }
 
 /* --- starting ------------------------------------------------------------ */
@@ -278,18 +273,27 @@ startButton.addEventListener('click', async () => {
   // The blob runs before the conversation connects, so the children see
   // something alive during the handshake rather than a blank screen.
   show('live');
-  statusLine.textContent = 'Getting Pip…';
-  shownState = null;
+  connectingLine.classList.remove('hidden');
+  connectingLine.textContent = 'Getting Pip ready…';
+  stages.live.dataset.state = 'connecting';
+  conversationState = null;
   blob = new PipBlob(document.querySelector('#blob'), { reducedMotion });
   blob.setState('idle');
   blob.start();
 
   session = new PipSession({
     onState: (state) => {
-      blob?.setState(state === 'waiting' ? 'idle' : state);
-      setStatus(state);
+      if (state === 'connected') {
+        // The words go away the moment there is a blob to watch instead.
+        connectingLine.classList.add('hidden');
+        announce.textContent = 'Pip is listening.';
+        setConversationState('listening');
+      }
     },
-    onLevels: (levels) => blob?.setLevels(levels),
+    onLevels: (levels) => {
+      blob?.setLevels(levels);
+      if (conversationState !== null) updateStateFromLevels(levels);
+    },
     onTranscript: (turn) => {
       // Held in memory for phase 6's recap, which the browser will write and
       // encrypt itself. Never uploaded from here, never logged.
@@ -300,14 +304,26 @@ startButton.addEventListener('click', async () => {
       document.querySelector('#alert-ok').focus();
     },
     onEnded: (reason) => {
+      // The blob settling, shrinking and fading *is* the ended state. It was
+      // followed by an "All done" panel with a Back button, which told a
+      // grown-up something they had just watched happen and asked them to
+      // press a button to leave a screen they no longer wanted. Gone: the
+      // blob says it, and then the page takes itself back to the home screen.
+      conversationState = 'ended';
       blob?.setState('ended');
-      doneDetail.textContent = describeEnding(reason);
-      // Let the blob visibly settle before the screen changes. Cutting
-      // straight to a panel loses the one cue a small child can read.
+      stages.live.dataset.state = 'ended';
+      connectingLine.classList.add('hidden');
+      announce.textContent = 'Pip has stopped listening.';
+      endButton.classList.add('hidden');
+
+      // An error is the exception: leaving would hide the one explanation of
+      // what went wrong.
+      if (reason === 'error') return;
+
       setTimeout(() => {
-        show('done');
         blob?.stop();
-      }, 1800);
+        location.replace('/home.html');
+      }, 2600);
     },
     onError: (message) => fail(message),
   });
@@ -334,17 +350,6 @@ function friendlyStartError(error) {
     return 'Pip needs the microphone. Allow it in your browser and tap Start again.';
   }
   return error?.message ?? 'Pip could not start. Please try again.';
-}
-
-function describeEnding(reason) {
-  return {
-    pip: 'Pip finished the conversation and stopped listening.',
-    parent: 'You finished the session. Pip has stopped listening.',
-    silence: 'It went quiet, so Pip stopped listening.',
-    hidden: 'The screen was away for a while, so Pip stopped listening.',
-    too_long: 'That reached the fifteen minute limit, so Pip stopped listening.',
-    error: 'Something went wrong, so Pip stopped listening.',
-  }[reason] ?? 'Pip has stopped listening.';
 }
 
 /* --- ending -------------------------------------------------------------- */

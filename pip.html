@@ -75,25 +75,22 @@
       </div>
     </section>
 
-    <!-- 3. The blob ----------------------------------------------------- -->
+    <!-- 3. The blob, and nothing else ------------------------------------
+         No caption. The owner's own testing settled it: a line reading
+         "talking" or "listening" flickered, and the blob already says which is
+         which to anyone in the room, including a five-year-old who cannot read
+         the caption anyway. The only words here are while Pip is still being
+         fetched, when the screen would otherwise look broken. -->
     <section id="stage-live" class="pip__stage pip__stage--live hidden">
       <canvas id="blob" class="pip__blob" aria-hidden="true"></canvas>
-
-      <!-- Deliberately few words: the youngest child using this is five. The
-           blob carries the meaning; this line is for the grown-up. -->
-      <p class="pip__status" id="status" role="status" aria-live="polite"></p>
-
+      <p class="pip__status" id="connecting">Getting Pip ready&hellip;</p>
       <button class="pip__end" id="end" type="button">Finish</button>
     </section>
 
-    <!-- 4. Finished ----------------------------------------------------- -->
-    <section id="stage-done" class="pip__stage hidden">
-      <div class="pip__panel pip__panel--centred">
-        <h1 class="pip__heading">All done</h1>
-        <p class="muted" id="done-detail">Pip has stopped listening.</p>
-        <p class="pip__aside"><a class="btn" href="/home.html">Back</a></p>
-      </div>
-    </section>
+    <!-- For screen readers only, and only at the two moments that matter:
+         connected, and finished. Announcing every turn would be the same
+         flicker in a different form. -->
+    <p class="visually-hidden" id="announce" role="status" aria-live="polite"></p>
 
     <!-- The safety alert, over everything ------------------------------- -->
     <div id="alert" class="pip__alert hidden" role="alertdialog" aria-labelledby="alert-heading">

@@ -141,17 +141,18 @@ export class PipSession {
 
       onConnect: () => {
         this.lastSound = Date.now();
-        this.options.onState?.('listening');
+        this.options.onState?.('connected');
       },
 
-      onModeChange: ({ mode }) => {
-        if (this.finished) return;
-        // The SDK reports the agent's mode. "speaking" and "listening" are the
-        // two the children need to be able to tell apart.
-        if (mode === 'speaking') this.options.onState?.('speaking');
-        else if (mode === 'listening') this.options.onState?.('listening');
-        else this.options.onState?.('thinking');
-      },
+      // onModeChange is deliberately not used to decide whether Pip is
+      // talking.
+      //
+      // It reports the agent's *intent*, which changes the moment the agent
+      // has finished generating — while the audio is still playing out. The
+      // result was a blob and a caption flipping to "listening" halfway
+      // through Pip's sentence, then back. The honest signal is whether Pip's
+      // audio is actually flowing, which is what the output volume says, so
+      // the page derives it from there instead.
 
       onDisconnect: () => {
         // Covers Pip's own end_call and the platform's duration cap.

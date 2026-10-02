@@ -108,12 +108,22 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
   await expect(page.locator('#stage-live')).toBeVisible();
   await expect(page.locator('#blob')).toBeVisible();
 
-  // The assertion this whole test exists for. "Pip is listening" is only set
-  // from onConnect, which only fires once WebRTC is up — so reaching it proves
-  // the token worked, the policy allowed LiveKit, and the worklets loaded.
-  await expect(page.locator('#status')).toHaveText(/Pip is listening|Pip is talking/i, {
-    timeout: 45_000,
-  });
+  // The assertion this whole test exists for. data-state only leaves
+  // "connecting" from onConnect, which fires once WebRTC is up — so reaching
+  // it proves the token worked, the policy allowed LiveKit, and the worklets
+  // loaded.
+  //
+  // It reads an attribute rather than any words on screen, because there are
+  // deliberately no words: a caption saying "talking" or "listening" flickered
+  // and the blob already tells anyone in the room which is which.
+  await expect(page.locator('#stage-live')).toHaveAttribute(
+    'data-state',
+    /listening|speaking/,
+    { timeout: 45_000 },
+  );
+
+  // And the "getting ready" line gets out of the way once there is a blob.
+  await expect(page.locator('#connecting')).toBeHidden();
 
   // The blob should be painting, not a blank canvas.
   const painted = await page.evaluate(() => {
@@ -141,8 +151,13 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
   // it was typed, which is the wrong behaviour and billed by the minute.
   await page.click('#end');
 
-  await expect(page.locator('#stage-done')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('#done-detail')).toContainText(/stopped listening/i);
+  // The blob settling is the ended state. There is no "All done" panel to
+  // acknowledge: it told a grown-up something they had just watched happen and
+  // asked them to press a button to leave. The page returns on its own.
+  await expect(page.locator('#stage-live')).toHaveAttribute('data-state', 'ended', {
+    timeout: 15_000,
+  });
+  await page.waitForURL('**/home.html', { timeout: 15_000 });
 
   const closed = await sql(`select ended_at, duration_seconds, duration_source
                               from public.sessions where id = '${open[0].id}'`);
