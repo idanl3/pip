@@ -7,7 +7,10 @@ import {
   listInvites,
   deleteInvite,
   inviteLink,
+  loadPracticeNotes,
+  savePracticeNotes,
 } from './lib/admin.js';
+import { buildGeneratorPrompt } from './lib/practice-notes.js';
 
 const notice = document.querySelector('#notice');
 const familiesHost = document.querySelector('#families');
@@ -28,8 +31,15 @@ const invitesHost = document.querySelector('#invites');
   await refresh();
 })().catch(fail);
 
+let practiceNotes = new Map();
+
 async function refresh() {
-  const [families, invites] = await Promise.all([listFamilies(), listInvites()]);
+  const [families, invites, notes] = await Promise.all([
+    listFamilies(),
+    listInvites(),
+    loadPracticeNotes(),
+  ]);
+  practiceNotes = notes;
   renderInvites(invites);
   renderFamilies(families);
 }
@@ -188,6 +198,8 @@ function familyCard(family) {
   if (family.extra_care) card.append(detail('Extra care', family.extra_care));
   if (family.review_note) card.append(detail('Your note', family.review_note));
 
+  card.append(practiceSection(family));
+
   /* Minute limit */
   const limitRow = document.createElement('div');
   limitRow.className = 'row';
@@ -259,6 +271,85 @@ function familyCard(family) {
 
   card.append(actions);
   return card;
+}
+
+
+/**
+ * The "what this profile means in practice" section for one family.
+ *
+ * This is the step that cannot be automated away yet: turning a profile into
+ * instructions is a professional judgement, and the owner is the one who knows
+ * the method. So the screen does the tedious part - assembling the whole
+ * method, the family's facts and four examples of the standard to match into
+ * one block - and the owner pastes that into an AI, reads what comes back, and
+ * saves it.
+ *
+ * Without notes a family still works: the prompt falls back to the general
+ * rules. With them, Pip adapts to these particular children, which is what
+ * made it handle a five-year-old properly in the first place.
+ */
+function practiceSection(family) {
+  const existing = practiceNotes.get(family.id);
+
+  const wrap = document.createElement('div');
+  wrap.style.marginBlockStart = '1rem';
+
+  const title = document.createElement('p');
+  title.style.margin = '0 0 0.25rem';
+  const strong = document.createElement('strong');
+  strong.textContent = 'What this profile means in practice';
+  title.append(strong);
+  wrap.append(title);
+
+  wrap.append(
+    muted(
+      existing
+        ? `Saved ${new Date(existing.updated_at).toLocaleDateString()}. Pip uses this.`
+        : 'Not written yet. Pip is falling back to the general rules, which do not name your children.',
+    ),
+  );
+
+  const box = document.createElement('textarea');
+  box.value = existing?.notes ?? '';
+  box.rows = existing ? 6 : 3;
+  box.placeholder = 'Paste what the AI gives you back here.';
+  box.style.marginBlockStart = '0.5rem';
+  wrap.append(box);
+
+  const row = document.createElement('div');
+  row.className = 'actions';
+  row.style.marginBlockStart = '0.5rem';
+
+  const copy = button('Copy the prompt for an AI', 'btn btn--quiet', async () => {
+    const text = buildGeneratorPrompt(family, family.children ?? []);
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = 'Copied - paste it into Claude';
+      setTimeout(() => (copy.textContent = 'Copy the prompt for an AI'), 2500);
+    } catch {
+      // Clipboard access can be refused. Showing the text is a fine fallback
+      // and needs no permission.
+      box.value = text;
+      box.select();
+      fail('Could not reach the clipboard, so the prompt is in the box below. Copy it from there, then paste the answer back.');
+    }
+  });
+
+  // Not just "Save": the minute limit on the same card has one, and two
+  // buttons with the same name on one card is ambiguous to a person and to a
+  // test.
+  const save = button('Save notes', 'btn', async () => {
+    try {
+      await savePracticeNotes(family.id, box.value);
+      await refresh();
+    } catch (error) {
+      fail(error.message);
+    }
+  });
+
+  row.append(copy, save);
+  wrap.append(row);
+  return wrap;
 }
 
 /* --- small helpers ------------------------------------------------------- */

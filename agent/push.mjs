@@ -48,6 +48,21 @@ if (!KEY || !AGENT) {
  * Each one is written so the prompt still reads sensibly with it substituted
  * in, rather than leaving Pip describing an empty field.
  */
+/**
+ * What Pip is told when a family has no practice notes of its own.
+ *
+ * These are the general rules: true of children in general, and weaker for
+ * that. The per-family notes written in the admin screen replace them, and
+ * the difference is between "a child who is much younger needs shorter
+ * sentences" and "Mai is five, speak to her in very short sentences".
+ */
+const PRACTICE_NOTES_FALLBACK = [
+  'A child who gives in or agrees quickly may be doing it to end the argument rather than because they are happy. Check gently that a solution really works for them, and make sure their own feelings get space, not only everyone else\'s.',
+  'A child who is sensitive to fairness will notice anything uneven, including how you treat each child. Keep turns and attention visibly equal. Invite their ideas while problem-solving, but make sure their solutions work for the others too, not only cleverly for themselves.',
+  'A child who is much younger than the others, or shy, needs very short and simple sentences and choices rather than open questions, and must not be spoken over. If they get overwhelmed, stop and calm first, and invite the parent to help if they do not settle quickly.',
+  'When the conflict is about a parent\'s attention, do not promise anything on the parent\'s behalf. Name the feeling, and mention it in the recap so the parent can follow it up.',
+].join('\n');
+
 const DEFAULTS = {
   children:
     'No profile was provided for this conversation. Ask each child their name and roughly how old they are, warmly and briefly, before you begin.',
@@ -58,6 +73,13 @@ const DEFAULTS = {
   recurring_conflicts: 'none noted',
   house_rules: 'none noted',
   extra_care: 'nothing noted',
+
+  // The general rules, used for any family whose practice notes have not been
+  // written yet. Correct but weaker than the real thing: they describe a kind
+  // of child rather than naming one, so Pip has to work out who they apply to.
+  // That inference is exactly what was lost when the owner's per-child notes
+  // were generalised, and why the age adaptation stopped showing.
+  practice_notes: PRACTICE_NOTES_FALLBACK,
 };
 
 const END_CALL = {

@@ -121,6 +121,15 @@ Deno.serve(async (request) => {
     .eq('family_id', family.id)
     .order('sort_order');
 
+  // The per-family practical guidance, if the owner has written it. Read with
+  // the service role because the table is admin-only: it is a professional's
+  // read on somebody's child and the parent never sees it.
+  const { data: practice } = await asService
+    .from('practice_notes')
+    .select('notes')
+    .eq('family_id', family.id)
+    .maybeSingle();
+
   const all = children ?? [];
   const involved = requestedIds.length ? all.filter((c) => requestedIds.includes(c.id)) : [];
 
@@ -149,6 +158,10 @@ Deno.serve(async (request) => {
     // this is the part that can. "there" covers a session of visiting
     // children whose names nobody has told us yet.
     greeting_names: involved.length ? joinNames(involved.map((c) => c.first_name)) : 'there',
+    // Left out entirely when unwritten, so the agent falls back to the general
+    // rules held as the variable's default rather than being handed a blank.
+    ...(practice?.notes ? { practice_notes: practice.notes } : {}),
+
     recurring_conflicts: family.recurring_conflicts || 'none noted',
     house_rules: family.house_rules || 'none noted',
     extra_care: family.extra_care || 'nothing noted',

@@ -85,3 +85,37 @@ export async function deleteInvite(code) {
 export function inviteLink(code) {
   return `${location.origin}/join.html?code=${encodeURIComponent(code)}`;
 }
+
+/* --- practice notes ------------------------------------------------------ */
+
+/**
+ * The per-family practical guidance, keyed by family id.
+ *
+ * Admin-only at the database level: a parent cannot read this table at all.
+ * It is a professional's read on their child and belongs with the rest of the
+ * prompt they never see.
+ */
+export async function loadPracticeNotes() {
+  const { data, error } = await supabase
+    .from('practice_notes')
+    .select('family_id, notes, source, updated_at');
+
+  if (error) throw error;
+  return new Map((data ?? []).map((row) => [row.family_id, row]));
+}
+
+export async function savePracticeNotes(familyId, notes, source = 'manual') {
+  const trimmed = notes.trim();
+
+  if (!trimmed) {
+    const { error } = await supabase.from('practice_notes').delete().eq('family_id', familyId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from('practice_notes')
+    .upsert({ family_id: familyId, notes: trimmed, source }, { onConflict: 'family_id' });
+
+  if (error) throw error;
+}

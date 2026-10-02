@@ -87,7 +87,9 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
 
   // --- minute limit -------------------------------------------------------
   await card().locator('input[type="number"]').fill('45');
-  await card().getByRole('button', { name: 'Save' }).click();
+  // exact, because the practice-notes section on the same card has a
+  // 'Save notes' button and getByRole matches accessible names by substring.
+  await card().getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(async () => (await familyOf(familyEmail)).monthly_minute_limit).toBe(45);
 
   // --- send back with a note ---------------------------------------------
