@@ -12,87 +12,36 @@
     <link rel="stylesheet" href="./src/styles/pip.css" />
   </head>
   <body class="pip">
-    <!-- Everything lives on one page. The browser grants the microphone only on
-         a user gesture, and a gesture does not survive a navigation, so the
-         parent's tap on Start has to be the tap that opens the conversation. -->
+    <!-- Two stages: the PIN, then Pip.
+         Nothing in between. The parent used to pick who was involved here, and
+         that selection told Pip nothing it does not ask the children itself.
+         A fight is happening while this screen is open; it should cost one tap
+         and a PIN.
+
+         Both stages are on one page because the browser grants the microphone
+         only during a user gesture, and a gesture does not survive a
+         navigation. The tap that accepts the PIN is the tap the conversation
+         opens from. -->
 
     <div id="notice" class="notice notice--error pip__notice" role="alert"></div>
 
-    <!-- 1. The PIN ------------------------------------------------------- -->
-    <section id="stage-pin" class="pip__stage hidden">
-      <div class="pip__panel pip__panel--centred">
-        <h1 class="pip__heading" id="pin-heading">Parent PIN</h1>
-        <p class="muted" id="pin-explainer">So a session can only be started by you.</p>
+    <section id="stage-pin" class="pip__stage hidden"></section>
 
-        <!-- Dots, not digits. Children are usually standing right there. -->
-        <div class="pip__dots" id="pin-dots" aria-hidden="true"></div>
-        <p class="field__error" id="pin-error" role="alert"></p>
-
-        <!-- An on-screen keypad rather than a text field: this is used on a
-             family tablet, where a keyboard means a keyboard sliding over half
-             the screen. The physical keyboard still works for a laptop. -->
-        <div class="pip__keypad" id="keypad">
-          <button type="button" data-key="1">1</button>
-          <button type="button" data-key="2">2</button>
-          <button type="button" data-key="3">3</button>
-          <button type="button" data-key="4">4</button>
-          <button type="button" data-key="5">5</button>
-          <button type="button" data-key="6">6</button>
-          <button type="button" data-key="7">7</button>
-          <button type="button" data-key="8">8</button>
-          <button type="button" data-key="9">9</button>
-          <button type="button" class="pip__key--quiet" data-key="clear">Clear</button>
-          <button type="button" data-key="0">0</button>
-          <button type="button" class="pip__key--quiet" data-key="back" aria-label="Delete">
-            &#9003;
-          </button>
-        </div>
-
-        <p class="visually-hidden" id="pin-count" role="status" aria-live="polite"></p>
-        <button class="btn btn--block" id="pin-submit" type="button">Continue</button>
-        <p class="muted pip__aside" id="pin-forgot"></p>
-      </div>
-    </section>
-
-    <!-- 2. Who ----------------------------------------------------------- -->
-    <section id="stage-setup" class="pip__stage hidden">
-      <div class="pip__panel">
-        <h1 class="pip__heading">Who needs help?</h1>
-        <p class="field__hint">
-          Pip will know their names and ages, and will greet them without
-          asking. Tap "Someone else" for a cousin or a friend, and Pip will ask
-          that child their name and age itself.
-        </p>
-        <div class="chips" id="who"></div>
-
-        <p class="muted" id="minutes"></p>
-
-        <button class="btn btn--block" id="start" type="button">Start</button>
-        <p class="muted pip__aside">
-          Stay nearby. Pip is your helper, not a babysitter.
-        </p>
-        <p class="pip__aside"><a href="/home.html">Back</a></p>
-      </div>
-    </section>
-
-    <!-- 3. The blob, and nothing else ------------------------------------
-         No caption. The owner's own testing settled it: a line reading
-         "talking" or "listening" flickered, and the blob already says which is
-         which to anyone in the room, including a five-year-old who cannot read
-         the caption anyway. The only words here are while Pip is still being
-         fetched, when the screen would otherwise look broken. -->
     <section id="stage-live" class="pip__stage pip__stage--live hidden">
       <canvas id="blob" class="pip__blob" aria-hidden="true"></canvas>
+
+      <!-- No caption. The blob says whose turn it is to anyone in the room,
+           including a five-year-old who cannot read one. These words appear
+           only while Pip is still being fetched, when the screen would
+           otherwise look broken. -->
       <p class="pip__status" id="connecting">Getting Pip ready&hellip;</p>
+
       <button class="pip__end" id="end" type="button">Finish</button>
     </section>
 
-    <!-- For screen readers only, and only at the two moments that matter:
-         connected, and finished. Announcing every turn would be the same
-         flicker in a different form. -->
+    <!-- For screen readers, and only at the two moments that matter. -->
     <p class="visually-hidden" id="announce" role="status" aria-live="polite"></p>
 
-    <!-- The safety alert, over everything ------------------------------- -->
     <div id="alert" class="pip__alert hidden" role="alertdialog" aria-labelledby="alert-heading">
       <div class="pip__alert-inner">
         <h2 id="alert-heading">Please come over</h2>

@@ -67,9 +67,6 @@ const DEFAULTS = {
   children:
     'No profile was provided for this conversation. Ask each child their name and roughly how old they are, warmly and briefly, before you begin.',
   parent_names: 'your grown-up',
-  children_in_session:
-    'nobody was named, so you do not know who is here - ask each child their name and roughly how old they are',
-  greeting_names: 'there',
   recurring_conflicts: 'none noted',
   house_rules: 'none noted',
   extra_care: 'nothing noted',

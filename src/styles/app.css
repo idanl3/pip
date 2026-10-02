@@ -394,3 +394,19 @@ textarea[aria-invalid='true'] {
 .muted--spaced {
   margin-block-start: 1.5rem;
 }
+
+/* --- The PIN gate -------------------------------------------------------
+   Covers whatever it is guarding, rather than being part of that page's
+   layout. Used over the family's answers, which a child should not be able to
+   read about themselves by picking up the tablet. */
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem;
+  background: var(--pip-cream);
+  overflow-y: auto;
+}

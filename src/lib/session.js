@@ -33,7 +33,7 @@ const SILENCE_THRESHOLD = 0.02;
  * page can tell "waiting for approval" from "out of minutes" and say
  * something useful.
  */
-export async function requestSession({ childIds = [], includeOther = false } = {}) {
+export async function requestSession() {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
   if (!accessToken) throw Object.assign(new Error('Please sign in again.'), { code: 'auth' });
@@ -45,7 +45,7 @@ export async function requestSession({ childIds = [], includeOther = false } = {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ child_ids: childIds, include_other: includeOther }),
+    body: JSON.stringify({}),
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -108,8 +108,8 @@ export class PipSession {
     this.onPageHide = this.onPageHide.bind(this);
   }
 
-  async start({ childIds, includeOther }) {
-    const details = await requestSession({ childIds, includeOther });
+  async start() {
+    const details = await requestSession();
     this.sessionId = details.session_id;
 
     this.conversation = await Conversation.startSession({

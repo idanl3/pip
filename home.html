@@ -11,7 +11,14 @@
     <link rel="stylesheet" href="./src/styles/app.css" />
   </head>
   <body>
-    <div class="page">
+    <!-- Deliberately bare.
+         This screen showed the whole family profile, including each child's
+         personality and what they do in a fight. It is also the screen a
+         parent opens with children in the room, and "cries and finds it hard
+         to stop" is not something a child should read about themselves over a
+         shoulder. The profile moved behind the PIN. What is left is the one
+         thing this screen is for: starting Pip. -->
+    <div class="page page--narrow">
       <header class="page__header">
         <div class="page__mark" aria-hidden="true"></div>
         <h1 class="page__title">Pip</h1>
@@ -28,27 +35,26 @@
       <div id="start-card" class="card hidden">
         <p class="card__title">Start a session</p>
         <p class="muted">
-          You will need your PIN, then choose who is involved. Stay nearby —
-          Pip is your helper, not a babysitter.
+          Pip will ask who is there and take it from the top. Stay nearby — Pip
+          is your helper, not a babysitter.
         </p>
-        <a class="btn" href="/pip.html">Open Pip</a>
+        <a class="btn btn--block" href="/pip.html">Open Pip</a>
+        <p class="muted status__note" id="minutes"></p>
       </div>
 
-      <h2>Your family</h2>
-      <div id="family" class="card"></div>
-
       <div class="actions">
-        <a class="btn" href="/onboarding.html">Edit these answers</a>
+        <a class="btn btn--quiet" href="/onboarding.html">Your family's answers</a>
         <a class="btn btn--quiet hidden" id="admin-link" href="/admin.html">Admin</a>
         <button type="button" class="btn btn--link" id="sign-out">Sign out</button>
       </div>
 
       <h2>What Pip keeps</h2>
       <p class="muted">
-        The answers above, and how many minutes you have used. No recordings,
-        ever. What your children actually say is never stored on our side —
-        Pip's voice goes straight between the browser and the voice service, and
-        the conversation is not written down anywhere we can read.
+        How many minutes you have used, and the answers you gave about your
+        family. No recordings, ever. What your children actually say is never
+        stored on our side — Pip's voice goes straight between this device and
+        the voice service, and the conversation is not written down anywhere we
+        can read.
       </p>
     </div>
 

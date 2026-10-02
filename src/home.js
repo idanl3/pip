@@ -1,13 +1,28 @@
 import { requireSession, signOut, isAdmin } from './lib/auth.js';
-import { loadFamily, loadChildren, describeStatus } from './lib/data.js';
+import { loadFamily, describeStatus } from './lib/data.js';
+import { supabase } from './lib/supabase.js';
+
+/**
+ * The parent's home screen.
+ *
+ * Status, minutes, and a way into Pip. Deliberately nothing about the
+ * children.
+ *
+ * It used to print the whole profile here — each child's name, age,
+ * personality and what they do in a fight. This is also the screen a parent
+ * opens with the children standing next to them, and "cries and finds it hard
+ * to stop" is not something a child should read about themselves over a
+ * shoulder. Those answers are behind the PIN now, on the form where they were
+ * written.
+ */
 
 const notice = document.querySelector('#notice');
 const statusBox = document.querySelector('#status');
 const statusTitle = document.querySelector('#status-title');
 const statusBody = document.querySelector('#status-body');
 const statusNote = document.querySelector('#status-note');
-const familyBox = document.querySelector('#family');
 const startCard = document.querySelector('#start-card');
+const minutesLine = document.querySelector('#minutes');
 
 (async function start() {
   const session = await requireSession();
@@ -30,14 +45,12 @@ const startCard = document.querySelector('#start-card');
 
   if (family.status === 'approved') {
     startCard.classList.remove('hidden');
+    await showMinutes(family);
   }
 
-  const children = await loadChildren(family.id);
-  render(family, children);
-
-  // Shown only to the handful of people who can act on it. This is courtesy,
-  // not security: the admin screen and every table behind it refuse anyone
-  // else regardless of whether this link is on the page.
+  // Shown only to the handful of people who can act on it. Courtesy, not
+  // security: the admin screen and every table behind it refuse anyone else
+  // whether or not this link is on the page.
   if (await isAdmin()) {
     document.querySelector('#admin-link').classList.remove('hidden');
   }
@@ -45,56 +58,28 @@ const startCard = document.querySelector('#start-card');
   notice.textContent = error.message;
 });
 
-function render(family, children) {
-  familyBox.replaceChildren();
+/**
+ * Minutes used and left this month.
+ *
+ * Read from the family_usage view, which derives the total from the sessions
+ * rather than keeping a counter. A counter that has drifted is worse than
+ * none: it either blocks a family with minutes left or bills one without.
+ */
+async function showMinutes(family) {
+  const { data } = await supabase
+    .from('family_usage')
+    .select('minutes_used, monthly_minute_limit')
+    .eq('family_id', family.id)
+    .maybeSingle();
 
-  familyBox.append(
-    line('They call you', (family.parent_names ?? []).join(' and ') || '—'),
-    line(
-      'Minutes',
-      `${family.monthly_minute_limit} a month`,
-    ),
-  );
+  const used = data?.minutes_used ?? 0;
+  const limit = data?.monthly_minute_limit ?? family.monthly_minute_limit;
+  const left = Math.max(0, limit - used);
 
-  for (const child of children) {
-    const block = document.createElement('div');
-    block.style.marginBlockStart = '0.9rem';
-
-    const heading = document.createElement('p');
-    heading.style.margin = '0';
-    heading.append(strong(`${child.first_name}, ${child.age}`));
-    block.append(heading);
-
-    if (child.personality) block.append(small(child.personality));
-    if (child.conflict_tendency) block.append(small(`In a fight: ${child.conflict_tendency}`));
-
-    familyBox.append(block);
-  }
-
-  if (family.recurring_conflicts) familyBox.append(line('They argue about', family.recurring_conflicts));
-  if (family.house_rules) familyBox.append(line('House rules', family.house_rules));
-  if (family.extra_care) familyBox.append(line('Extra care', family.extra_care));
-}
-
-function line(label, value) {
-  const p = document.createElement('p');
-  p.style.margin = '0.35rem 0 0';
-  p.append(strong(`${label}: `), document.createTextNode(value));
-  return p;
-}
-
-function strong(text) {
-  const el = document.createElement('strong');
-  el.textContent = text;
-  return el;
-}
-
-function small(text) {
-  const p = document.createElement('p');
-  p.className = 'muted';
-  p.style.margin = '0.15rem 0 0';
-  p.textContent = text;
-  return p;
+  minutesLine.textContent =
+    left > 0
+      ? `${left} of ${limit} minutes left this month.`
+      : 'No minutes left this month. They reset on the first.';
 }
 
 document.querySelector('#sign-out').addEventListener('click', async () => {

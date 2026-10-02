@@ -28,6 +28,22 @@ const MARKER = 'E2E-REVIEW-MARKER';
 
 test.afterAll(cleanupTestData);
 
+/**
+ * Gets past the PIN gate that now guards the profile form.
+ *
+ * A fresh browser context has no PIN, so the gate offers to set one. Which is
+ * the point: the form describes each child's temperament, and a child should
+ * not be able to read that about themselves by picking up the tablet.
+ */
+async function passPinGate(page, pin = '481902') {
+  await page.waitForSelector('#stage-pin [data-pin-submit]');
+  for (const digit of pin) {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#form-area:not(.hidden)');
+}
+
 async function join(page, code, email) {
   await page.goto(`/join.html?code=${code}`);
   await page.fill('#email', email);
@@ -102,8 +118,10 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
   expect(sentBack.status).toBe('needs_changes');
   expect(sentBack.review_note).toContain('a bit more about Zayin');
 
-  // The parent should see that note, in their own words-facing wording.
+  // The parent should see that note, in their own words-facing wording. The
+  // form is behind the PIN now, so get through that first.
   await familyPage.goto('/onboarding.html');
+  await passPinGate(familyPage);
   await expect(familyPage.locator('#review-note')).toContainText('a bit more about Zayin');
 
   // And editing should send it back to pending without the owner doing
@@ -153,9 +171,11 @@ test('an owner who is also a family lands on their own home, not the admin scree
   await page.goto('/index.html');
   await page.waitForURL('**/home.html');
 
-  // Their own family, and a session they can start.
-  await expect(page.locator('#family')).toContainText('Vav, 8');
+  // A session they can start. The home screen deliberately no longer prints
+  // the children's profiles: it is opened with them in the room.
   await expect(page.locator('#start-card')).toBeVisible();
+  await expect(page.locator('#minutes')).toContainText(/minutes left this month/i);
+  await expect(page.locator('body')).not.toContainText('Vav');
 
   // The admin area is reachable, but as a link rather than a destination.
   const adminLink = page.locator('#admin-link');

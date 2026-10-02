@@ -27,13 +27,17 @@ import {
 
 const PIN = '481902';
 
-/** Taps a PIN into the on-screen keypad. */
+/** Taps a PIN into the on-screen keypad and accepts it. */
 async function typePin(page, digits) {
-  await page.click('#keypad button[data-key="clear"]');
+  await page.click('#stage-pin button[data-key="clear"]');
   for (const digit of digits) {
-    await page.click(`#keypad button[data-key="${digit}"]`);
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
   }
 }
+
+const PIN_SUBMIT = '#stage-pin [data-pin-submit]';
+const PIN_ERROR = '#stage-pin [data-pin-error]';
+const PIN_HEADING = '#stage-pin [data-pin-heading]';
 
 test.afterAll(cleanupTestData);
 
@@ -67,7 +71,7 @@ async function approvedFamily(page) {
   return email;
 }
 
-test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({ page }) => {
+test('a parent sets a PIN and Pip actually connects', async ({ page }) => {
   const errors = watchForErrors(page);
   const email = await approvedFamily(page);
 
@@ -75,36 +79,25 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
 
   // --- the PIN, set for the first time on this device ---------------------
   await expect(page.locator('#stage-pin')).toBeVisible();
-  await expect(page.locator('#pin-heading')).toHaveText(/choose a parent pin/i);
+  await expect(page.locator(PIN_HEADING)).toHaveText(/choose a parent pin/i);
 
   await typePin(page, '1111');
-  await page.click('#pin-submit');
-  await expect(page.locator('#pin-error')).toContainText(/same digit/i);
+  await page.click(PIN_SUBMIT);
+  await expect(page.locator(PIN_ERROR)).toContainText(/same digit/i);
 
   await typePin(page, '1234');
-  await page.click('#pin-submit');
-  await expect(page.locator('#pin-error')).toContainText(/run of digits/i);
+  await page.click(PIN_SUBMIT);
+  await expect(page.locator(PIN_ERROR)).toContainText(/run of digits/i);
 
   // Dots, never digits: children are standing next to this screen.
   await typePin(page, PIN);
-  await expect(page.locator('#pin-dots .pip__dot')).toHaveCount(PIN.length);
-  await page.click('#pin-submit');
-  await expect(page.locator('#stage-setup')).toBeVisible();
+  await expect(page.locator('#stage-pin .pip__dot')).toHaveCount(PIN.length);
+  await page.click(PIN_SUBMIT);
 
-  // --- choosing who -------------------------------------------------------
-  // Two children plus "Someone else", for a cousin or a friend.
-  await expect(page.locator('#who .chip')).toHaveCount(3);
-  await expect(page.locator('#who')).toContainText('Alef (9)');
-  await expect(page.locator('#who')).toContainText('Someone else');
-
-  await page.click('#start');
-  await expect(page.locator('#notice')).toContainText(/tap who needs help/i);
-
-  await page.locator('#who .chip', { hasText: 'Alef' }).click();
-  await page.locator('#who .chip', { hasText: 'Bet' }).click();
-
-  // --- the conversation ---------------------------------------------------
-  await page.click('#start');
+  // --- straight into the conversation -------------------------------------
+  // Nothing between the PIN and Pip. The parent used to pick who was involved
+  // here, and that selection told Pip nothing it does not ask the children
+  // itself.
   await expect(page.locator('#stage-live')).toBeVisible();
   await expect(page.locator('#blob')).toBeVisible();
 
@@ -173,21 +166,21 @@ test('a returning parent is asked for the PIN, not to set one', async ({ page })
 
   await page.goto('/pip.html');
   await typePin(page, PIN);
-  await page.click('#pin-submit');
-  await expect(page.locator('#stage-setup')).toBeVisible();
+  await page.click(PIN_SUBMIT);
+  await expect(page.locator('#stage-live')).toBeVisible();
 
   // Reload: the PIN is stored on the device, so it should now be asked for
   // rather than chosen again.
   await page.reload();
-  await expect(page.locator('#pin-heading')).toHaveText(/^parent pin$/i);
+  await expect(page.locator(PIN_HEADING)).toHaveText(/^parent pin$/i);
 
   await typePin(page, '999999');
-  await page.click('#pin-submit');
-  await expect(page.locator('#pin-error')).toContainText(/not the PIN/i);
+  await page.click(PIN_SUBMIT);
+  await expect(page.locator(PIN_ERROR)).toContainText(/not the PIN/i);
 
   await typePin(page, PIN);
-  await page.click('#pin-submit');
-  await expect(page.locator('#stage-setup')).toBeVisible();
+  await page.click(PIN_SUBMIT);
+  await expect(page.locator('#stage-live')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

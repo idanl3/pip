@@ -9,9 +9,18 @@
     <title>About your family — Pip</title>
     <link rel="stylesheet" href="./src/styles/base.css" />
     <link rel="stylesheet" href="./src/styles/app.css" />
+    <link rel="stylesheet" href="./src/styles/pip.css" />
   </head>
   <body>
-    <div class="page">
+    <!-- Behind the PIN once there is a profile to protect.
+         These answers describe each child's temperament and what they do in a
+         fight. That is not reading a child should be able to do about
+         themselves by picking up the family tablet. First run is open, because
+         there is nothing there yet and the parent has just created the
+         account. -->
+    <section id="stage-pin" class="gate hidden"></section>
+
+    <div class="page hidden" id="form-area">
       <header class="page__header">
         <div class="page__mark" aria-hidden="true"></div>
         <h1 class="page__title">About your family</h1>

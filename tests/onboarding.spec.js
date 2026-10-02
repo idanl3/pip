@@ -84,9 +84,12 @@ test('a family joins by invitation and submits a profile', async ({ page }) => {
   await page.waitForURL('**/home.html');
 
   await expect(page.locator('#status-title')).toHaveText(/waiting to be approved/i);
-  await expect(page.locator('#family')).toContainText('Alef, 9');
-  await expect(page.locator('#family')).toContainText('Gimel, 5');
-  await expect(page.locator('#family')).toContainText('Dad and Ima');
+
+  // And no child's name appears on this screen at all, which is the point of
+  // moving the profile behind the PIN.
+  for (const name of ['Alef', 'Bet', 'Gimel']) {
+    await expect(page.locator('body')).not.toContainText(name);
+  }
 
   // Nothing may be startable before approval.
   await expect(page.locator('#start-card')).toBeHidden();
@@ -136,7 +139,16 @@ test('the saved profile comes back intact when reopened', async ({ page }) => {
   await page.click('#submit');
   await page.waitForURL('**/home.html');
 
+  // Reopening asks for a PIN now: these answers describe the children, and a
+  // child should not be able to read them by picking up the tablet. This
+  // context has no PIN yet, so the gate offers to set one.
   await page.goto('/onboarding.html');
+  await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+
   const reopened = page.locator('#children > .child').nth(0);
   await expect(reopened.locator('.js-name')).toHaveValue('Dalet');
   await expect(reopened.locator('.js-age')).toHaveValue('8');

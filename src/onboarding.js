@@ -1,4 +1,5 @@
 import { requireSession, signOut } from './lib/auth.js';
+import { requirePin } from './lib/pin-gate.js';
 import { loadFamily, loadChildren, saveProfile } from './lib/data.js';
 import {
   PERSONALITY_SUGGESTIONS,
@@ -164,6 +165,17 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
   if (!session) return;
 
   const family = await loadFamily();
+
+  // A profile that exists is a profile worth protecting. On first run there is
+  // nothing here yet and the parent has just signed up, so asking for a PIN
+  // they have not set would be a wall in front of an empty room.
+  if (family) {
+    await requirePin(document.querySelector('#stage-pin'), {
+      heading: 'Parent PIN',
+      explainer: 'These answers are about your children, so they stay behind the PIN.',
+    });
+  }
+  document.querySelector('#form-area').classList.remove('hidden');
 
   if (family) {
     submit.textContent = 'Save and send for approval';

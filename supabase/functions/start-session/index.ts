@@ -108,12 +108,6 @@ Deno.serve(async (request) => {
   /* --- what the agent is told --------------------------------------------- */
 
   const body = await request.json().catch(() => ({}));
-  const requestedIds: string[] = Array.isArray(body?.child_ids) ? body.child_ids : [];
-
-  // A cousin, a friend, a sibling nobody added. Pip is told plainly that it
-  // does not know this child, which triggers the rule in the prompt telling it
-  // to ask their name and age rather than assume a profile fits them.
-  const includeOther = body?.include_other === true;
 
   const { data: children } = await asService
     .from('children')
@@ -130,14 +124,19 @@ Deno.serve(async (request) => {
     .eq('family_id', family.id)
     .maybeSingle();
 
+  // Every child in the family, not a subset.
+  //
+  // The screen used to ask the parent to pick who was involved, and that
+  // selection was passed through. It is gone, because Pip asks the children
+  // who they are itself - which is how it always worked, and which turned out
+  // to be load-bearing: the names question is what carries Pip into the
+  // calming stage.
+  //
+  // Sending all of them is also more robust than sending a prediction. The
+  // children who turn up are not always the ones a parent tapped thirty
+  // seconds earlier, and Pip knowing about a child who stays quiet costs
+  // nothing.
   const all = children ?? [];
-  const involved = requestedIds.length ? all.filter((c) => requestedIds.includes(c.id)) : [];
-
-  // "Someone else" on its own is allowed: two visiting cousins is a real
-  // Tuesday, and Pip will ask both of them who they are.
-  if (involved.length === 0 && !includeOther) {
-    return refuse('no_children', 'Please choose who is involved.', origin, 400);
-  }
 
   const dynamicVariables = {
     // One line per child, in the shape the prompt already expects.
@@ -151,13 +150,6 @@ Deno.serve(async (request) => {
       .join('\n'),
 
     parent_names: joinNames(family.parent_names ?? []),
-    children_in_session: describeWhoIsHere(involved.map((c) => c.first_name), includeOther),
-
-    // Names alone, for the greeting the agent speaks before the model runs.
-    // children_in_session carries a whole sentence and cannot be said aloud;
-    // this is the part that can. "there" covers a session of visiting
-    // children whose names nobody has told us yet.
-    greeting_names: involved.length ? joinNames(involved.map((c) => c.first_name)) : 'there',
     // Left out entirely when unwritten, so the agent falls back to the general
     // rules held as the variable's default rather than being handed a blank.
     ...(practice?.notes ? { practice_notes: practice.notes } : {}),
@@ -314,25 +306,6 @@ Deno.serve(async (request) => {
     origin,
   );
 });
-
-/**
- * Who Pip is talking to, in a sentence it can act on.
- *
- * The names matter because Pip is told to greet them without asking who they
- * are — the parent has just said, and asking again wastes the first thirty
- * seconds of a mediation on admin. The unknown child is spelled out rather
- * than left off, because Pip needs to know to ask that one child their name
- * and age, and only that child.
- */
-function describeWhoIsHere(names: string[], includeOther: boolean): string {
-  const known = joinNames(names);
-
-  if (!includeOther) return known;
-  if (names.length === 0) {
-    return 'one or more children who are not in the profile above, so you do not know them yet';
-  }
-  return `${known}, and also a child who is not in the profile above, so you do not know that one yet`;
-}
 
 /** "Mom", "Mom and Abba", "Negev, Nina and Mai". */
 function joinNames(names: string[]): string {
