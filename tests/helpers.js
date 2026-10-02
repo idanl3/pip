@@ -55,7 +55,7 @@ export function testEmail() {
  * Puts an account on the admin roster.
  *
  * Only reachable with database credentials, because public.admins has no
- * grants and no policies — which is the point of it. An admin roster the
+ * grants and no policies - which is the point of it. An admin roster the
  * application could edit would not be worth much.
  */
 export async function promoteToAdmin(email) {
@@ -93,19 +93,11 @@ export async function cleanupTestData() {
 }
 
 /**
- * Collects anything the browser logged as an error.
- *
- * Attach this to every test. A page whose script throws on load still renders
- * its markup and still returns HTTP 200, so without watching the console a
- * completely dead page looks like a passing one. That has already happened
- * once on this project.
- */
-/**
  * Console noise that is known-benign, with the reason.
  *
  * Nothing goes in here to make a test pass. This list earns its keep only
- * because the strict check has already found two real bugs — a missing
- * favicon and a policy silently discarding every inline style — and a check
+ * because the strict check has already found two real bugs - a missing
+ * favicon and a policy silently discarding every inline style - and a check
  * that gets switched off finds nothing.
  */
 const IGNORED = [
@@ -120,6 +112,14 @@ const IGNORED = [
   },
 ];
 
+/**
+ * Collects anything the browser logged as an error.
+ *
+ * Attach this to every test. A page whose script throws on load still renders
+ * its markup and still returns HTTP 200, so without watching the console a
+ * completely dead page looks like a passing one. That has already happened
+ * once on this project.
+ */
 export function watchForErrors(page) {
   const errors = [];
 
@@ -127,7 +127,7 @@ export function watchForErrors(page) {
     const ignored = IGNORED.find((entry) => entry.pattern.test(line));
 
     // Echoed as it happens, not only when the final assertion runs. A test
-    // that fails earlier — on a timeout, say — otherwise throws away the one
+    // that fails earlier - on a timeout, say - otherwise throws away the one
     // console message that explains why, and debugging turns into guesswork.
     // Ignored lines are still printed, so nothing is hidden.
     console.log(`    [browser]${ignored ? ' (ignored)' : ''} ${line}`);

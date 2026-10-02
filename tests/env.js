@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 /**
  * Loads .env into process.env for the test harness.
  *
- * Vite reads .env for the application itself, but the tests need it too — they
+ * Vite reads .env for the application itself, but the tests need it too - they
  * create invitations and clean up accounts through the management API, which
  * needs credentials the browser never sees. A dependency just for this would
  * be more weight than parsing a handful of KEY=value lines.

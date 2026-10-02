@@ -58,7 +58,7 @@ test('a family joins by invitation and submits a profile', async ({ page }) => {
   await page.fill('#parent-other', 'Ima');
 
   const kids = [
-    { name: 'Alef', age: '9', trait: 'Sensitive — feels things deeply' },
+    { name: 'Alef', age: '9', trait: 'Sensitive - feels things deeply' },
     { name: 'Bet', age: '7', trait: 'Strong sense of fairness, notices anything uneven' },
     { name: 'Gimel', age: '5', trait: 'Easily overwhelmed by noise and commotion' },
   ];

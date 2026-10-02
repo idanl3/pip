@@ -16,7 +16,7 @@ import {
  *
  * Both accounts are created through the real journey rather than seeded, so
  * the test exercises the same path a family takes. The admin is promoted
- * afterwards with database credentials, because that is the only way in —
+ * afterwards with database credentials, because that is the only way in -
  * public.admins has no grants and no policies at all.
  *
  * Note the marker in the parent names. The admin screen shows every family,
@@ -124,8 +124,8 @@ test('an owner who is also a family lands on their own home, not the admin scree
   browser,
 }) => {
   // The bug this guards against: being an admin used to send you to the admin
-  // area on every sign-in, so the owner — who runs the pilot and is also a
-  // family in it — could never reach their own home page or start a session
+  // area on every sign-in, so the owner - who runs the pilot and is also a
+  // family in it - could never reach their own home page or start a session
   // with their own children.
   const context = await browser.newContext();
   const page = await context.newPage();

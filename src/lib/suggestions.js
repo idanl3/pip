@@ -1,8 +1,8 @@
 /**
  * Suggestions offered to parents during onboarding.
  *
- * Parents find describing their own child surprisingly hard — "she's just
- * normal" is the usual first answer — so the form offers these to tap, and
+ * Parents find describing their own child surprisingly hard - "she's just
+ * normal" is the usual first answer - so the form offers these to tap, and
  * every one of them is optional. Anything typed by hand carries equal weight.
  *
  * Four rules govern what belongs in these lists. Read them before adding to
@@ -24,6 +24,14 @@
  * 4. Difficult traits get fair, warm framing. A parent should be able to tick
  *    the honest answer without feeling they have told on their child.
  *
+ * Keep every entry plain ASCII.
+ *
+ * These strings are stored and then sent to the voice agent, and somewhere in
+ * that chain UTF-8 gets decoded as Latin-1. An em dash left the database as
+ * U+2014 and arrived at ElevenLabs as three characters of mojibake, so Pip was
+ * reading "Sensitive a- feels things deeply" inside a child's profile. The
+ * owner's own prompt was plain ASCII throughout and never had the problem.
+ *
  * Between them the lists are meant to span real children: loud and quiet, fast
  * and slow to anger, those who fight and those who fold, those who argue the
  * rules and those who cannot find words at all.
@@ -33,17 +41,17 @@
 export const PERSONALITY_SUGGESTIONS = [
   // How they are with people
   'Shy with new people, slow to warm up',
-  'Chatty — thinks out loud',
-  'Quiet — keeps things inside',
+  'Chatty - thinks out loud',
+  'Quiet - keeps things inside',
   'Takes charge and organises everyone else',
   'Happiest with one person at a time',
 
   // How strongly and how fast they feel things
-  'Sensitive — feels things deeply',
+  'Sensitive - feels things deeply',
   'Big feelings that arrive fast and pass fast',
   'Slow to get angry, but holds onto it',
   'Easily overwhelmed by noise and commotion',
-  'Steady — hard to rattle',
+  'Steady - hard to rattle',
 
   // What they care about
   'Strong sense of fairness, notices anything uneven',
@@ -52,10 +60,10 @@ export const PERSONALITY_SUGGESTIONS = [
   'Likes things done properly and gets frustrated when they are not',
 
   // How they handle being wrong, and the unexpected
-  'Proud — finds being wrong hard',
+  'Proud - finds being wrong hard',
   'Cautious, likes to know what is coming',
   'Takes words literally, exactly as they were said',
-  'Independent — would rather sort things out alone',
+  'Independent - would rather sort things out alone',
   'Affectionate, makes up through cuddles rather than words',
 ];
 
@@ -68,7 +76,7 @@ export const CONFLICT_SUGGESTIONS = [
 
   // Fighting
   'Digs in and will not budge',
-  'Gets loud — shouts, slams doors',
+  'Gets loud - shouts, slams doors',
   'Grabs or pushes',
   'Talks over the other one',
   'Insists the other one started it',
@@ -96,23 +104,23 @@ export const CONFLICT_SUGGESTIONS = [
 
 /**
  * How the children address their parents. Offered because the field confuses
- * people — they reach for their own first names, and Pip needs the word the
+ * people - they reach for their own first names, and Pip needs the word the
  * children actually use when it turns to the parent at the end.
  */
 export const PARENT_NAME_SUGGESTIONS = ['Mum', 'Mom', 'Dad', 'Mama', 'Papa', 'Ima', 'Abba'];
 
 /** Things families argue about again and again. */
 export const RECURRING_CONFLICT_SUGGESTIONS = [
-  'Competing for a parent’s attention',
-  'Screen time — whose turn, how long',
+  "Competing for a parent's attention",
+  'Screen time - whose turn, how long',
   'Rules of a game, and who is cheating',
-  'Sharing toys, or one taking the other’s things',
+  "Sharing toys, or one taking the other's things",
   'Who sits where, who goes first',
   'Tidying up, and who made the mess',
   'Bedtime',
   'One copying or following the other',
   'Teasing that goes too far',
-  'Space — one wanting to play alone',
+  'Space - one wanting to play alone',
 ];
 
 /** House rules the children already know, offered as a starting point. */

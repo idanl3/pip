@@ -109,7 +109,7 @@ test('a parent sets a PIN, chooses a child, and Pip actually connects', async ({
   await expect(page.locator('#blob')).toBeVisible();
 
   // The assertion this whole test exists for. data-state only leaves
-  // "connecting" from onConnect, which fires once WebRTC is up — so reaching
+  // "connecting" from onConnect, which fires once WebRTC is up - so reaching
   // it proves the token worked, the policy allowed LiveKit, and the worklets
   // loaded.
   //
