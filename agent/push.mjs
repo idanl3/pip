@@ -100,30 +100,25 @@ const END_CALL = {
 /**
  * The line the agent speaks before the model runs.
  *
- * It used to end with "can each of you tell me your name?", which wasted the
- * opening of every mediation asking something the parent had just answered on
- * the previous screen. Greeting children by name is also the fastest way to
- * tell them this thing knows who they are.
+ * The owner's original, restored verbatim. It names nobody and asks the
+ * children who they are, which is how it worked before any of this.
  *
- * It then has to end with a question, because a fixed opening line is spoken
- * and the agent waits: it does not carry on by itself. A greeting that merely
- * stated why Pip was there left two children listening to silence.
+ * The attempts to improve on it both failed, in instructive ways. Greeting
+ * them by name and then explaining why Pip was there offered nobody a turn, so
+ * two children sat listening to silence - a fixed opening line is spoken and
+ * then the agent waits, it does not carry on by itself. Replacing that with
+ * "who wants to tell me what happened first?" handed the children a decision
+ * that Pip's own stage 2 gives to Pip. And asking "can you hear me okay?"
+ * started the conversation outside any stage, so Pip chose its next move fresh
+ * and went straight to what happened - skipping the calming stage, because
+ * asking for names was what used to carry Pip into it.
  *
- * The question is deliberately trivial. An earlier version asked who wanted to
- * speak first, which handed the children a decision that Pip's own Stage 2
- * says Pip should make, using what it knows about them — the quiet one, or the
- * one who gets talked over, goes first. Asking two children who had just been
- * fighting to agree on who starts is an invitation to start again. "Can you
- * hear me okay?" gets a yes from somebody and nothing else.
- *
- * The rest of the wording is the owner's, restored. Do not reword it.
- *
- * {{greeting_names}} is names only. children_in_session is a sentence and
- * cannot be said out loud.
+ * It ends with a question, names nobody, and leads into stage 1. Leave it
+ * alone.
  */
 const FIRST_MESSAGE =
-  "Hi {{greeting_names}}! I'm Pip. I heard something tricky happened, and I'm " +
-  'here to help you figure it out. Can you hear me okay?';
+  "Hi, I'm Pip! I heard something tricky happened. I'm here to help you both " +
+  'figure it out. First, can each of you tell me your name?'
 
 const SETTINGS = {
   // Fifteen minutes. Ten was not headroom: a real session was found cut off
@@ -233,12 +228,14 @@ const checks = [
   ['all variables have defaults', [...declared].every((n) => n in placeholders)],
   ['the first message is ours', after.conversation_config.agent.first_message === FIRST_MESSAGE],
   [
-    'the first message no longer asks for names',
-    !/tell me your name/i.test(after.conversation_config.agent.first_message ?? ''),
-  ],
-  [
     'the first message asks something, so the children know to answer',
     (after.conversation_config.agent.first_message ?? '').trim().endsWith('?'),
+  ],
+  [
+    // Asking for names is deliberate. It is what carries Pip into stage 1,
+    // which is why removing it quietly stopped the calming happening.
+    'the first message still asks who they are',
+    /tell me your name/i.test(after.conversation_config.agent.first_message ?? ''),
   ],
   ['no child profile in the live prompt', !/Name: \w+, age \d+\. Personality:/.test(live.prompt)],
   ['model unchanged', live.llm === before.conversation_config.agent.prompt.llm],
