@@ -16,11 +16,25 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:4173', // vite preview, used by the built-output tests
 ]);
 
+/**
+ * Every header the browser actually sends.
+ *
+ * `apikey` is the one that is easy to forget and expensive to debug. Supabase
+ * requires it on every request, and a preflight that does not list it makes
+ * the browser refuse the real request — reporting only "Failed to fetch",
+ * which says nothing about headers, CORS, or anything else useful. The
+ * preflight itself answers 204 quite happily, so it looks fine from a script.
+ *
+ * x-client-info and x-supabase-api-version are added by supabase-js rather
+ * than by our own fetch calls, and cost nothing to allow.
+ */
+const ALLOWED_HEADERS = 'apikey, authorization, content-type, x-client-info, x-supabase-api-version';
+
 export function corsHeaders(origin: string | null): Record<string, string> {
   const allowed = origin && ALLOWED_ORIGINS.has(origin) ? origin : 'https://pip.linnewiel.com';
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Headers': ALLOWED_HEADERS,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',

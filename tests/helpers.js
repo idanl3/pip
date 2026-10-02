@@ -100,11 +100,44 @@ export async function cleanupTestData() {
  * completely dead page looks like a passing one. That has already happened
  * once on this project.
  */
+/**
+ * Console noise that is known-benign, with the reason.
+ *
+ * Nothing goes in here to make a test pass. This list earns its keep only
+ * because the strict check has already found two real bugs — a missing
+ * favicon and a policy silently discarding every inline style — and a check
+ * that gets switched off finds nothing.
+ */
+const IGNORED = [
+  {
+    // LiveKit's signalling socket closes without a clean handshake when the
+    // page ends the call, and the SDK logs that at error level. It appears
+    // during teardown, by which point the conversation has already done its
+    // job. If it happened mid-conversation the session would not have
+    // connected, and the assertions above would fail first.
+    pattern: /WS closed unexpectedly|error reading from signal stream/,
+    why: 'the voice SDK logging its own websocket teardown',
+  },
+];
+
 export function watchForErrors(page) {
   const errors = [];
-  page.on('pageerror', (error) => errors.push(`uncaught: ${error.message}`));
+
+  const record = (line) => {
+    const ignored = IGNORED.find((entry) => entry.pattern.test(line));
+
+    // Echoed as it happens, not only when the final assertion runs. A test
+    // that fails earlier — on a timeout, say — otherwise throws away the one
+    // console message that explains why, and debugging turns into guesswork.
+    // Ignored lines are still printed, so nothing is hidden.
+    console.log(`    [browser]${ignored ? ' (ignored)' : ''} ${line}`);
+
+    if (!ignored) errors.push(line);
+  };
+
+  page.on('pageerror', (error) => record(`uncaught: ${error.message}`));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+    if (message.type() === 'error') record(`console: ${message.text()}`);
   });
   return errors;
 }

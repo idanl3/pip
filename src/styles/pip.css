@@ -1,0 +1,160 @@
+/* The kids' screen.
+   Separate from app.css because this one is not a form: it is a thing a
+   five-year-old looks at, full-screen, from across a room. */
+
+.pip {
+  min-height: 100vh;
+  min-height: 100dvh; /* phones, where the toolbar steals the last 10% */
+  display: grid;
+  place-items: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow: hidden;
+}
+
+.pip__stage {
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.pip__panel {
+  width: min(26rem, 100%);
+  padding: 1.5rem 1.25rem;
+}
+
+.pip__panel--centred {
+  text-align: center;
+}
+
+.pip__heading {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.pip__aside {
+  margin-block-start: 1.25rem;
+  font-size: 0.9375rem;
+  color: var(--pip-plum-soft);
+}
+
+.pip__notice {
+  position: fixed;
+  inset-block-start: 1rem;
+  inset-inline: 1rem;
+  z-index: 20;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+/* --- PIN ----------------------------------------------------------------- */
+
+.pip__pin {
+  font-size: 2rem;
+  text-align: center;
+  letter-spacing: 0.5em;
+  padding-block: 0.6rem;
+  /* The letter-spacing pushes the text off-centre; this pulls it back. */
+  text-indent: 0.5em;
+}
+
+/* --- The live screen ----------------------------------------------------- */
+
+.pip__stage--live {
+  position: relative;
+  height: 100dvh;
+  grid-template-rows: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 2rem;
+}
+
+.pip__blob {
+  display: block;
+  width: min(78vw, 78dvh, 30rem);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  /* The canvas paints its own glow; a CSS shadow on top muddies it. */
+}
+
+.pip__status {
+  margin: 0;
+  text-align: center;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--pip-plum-soft);
+  min-height: 1.6em; /* reserve the line so nothing jumps between states */
+}
+
+/* The end control is deliberately small, low and plain. It is for the parent;
+   a big friendly button in Pip's own colours is one a child presses. */
+.pip__end {
+  justify-self: center;
+  font: inherit;
+  font-size: 0.9375rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  border: 1.5px solid #e4d2c0;
+  background: transparent;
+  color: var(--pip-plum-soft);
+  cursor: pointer;
+}
+
+.pip__end:hover {
+  border-color: var(--pip-coral);
+  color: var(--pip-plum);
+}
+
+/* --- The safety alert ---------------------------------------------------- */
+
+/* Unmissable on purpose. If Pip has reached its safety section, a parent
+   walking past the room should be able to tell from the doorway. */
+.pip__alert {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(61 43 63 / 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.pip__alert-inner {
+  max-width: 28rem;
+  background: #fffdfa;
+  border: 2px solid var(--pip-coral);
+  border-radius: var(--pip-radius);
+  padding: 1.5rem;
+  text-align: start;
+  box-shadow: 0 1.5rem 3rem rgb(61 43 63 / 0.25);
+}
+
+.pip__alert-inner h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+}
+
+.pip__alert-inner p {
+  margin: 0 0 1.25rem;
+  color: var(--pip-plum-soft);
+}
+
+/* A slow, calm pulse. Not an emergency klaxon: the moment this appears, the
+   child in the room is already upset and the parent needs to walk in steady. */
+@keyframes pip-alert-breathe {
+  from { box-shadow: 0 1.5rem 3rem rgb(61 43 63 / 0.25), 0 0 0 0 rgb(255 138 107 / 0.5); }
+  to   { box-shadow: 0 1.5rem 3rem rgb(61 43 63 / 0.25), 0 0 0 1.4rem rgb(255 138 107 / 0); }
+}
+
+.pip__alert-inner {
+  animation: pip-alert-breathe 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pip__alert-inner {
+    animation: none;
+  }
+}

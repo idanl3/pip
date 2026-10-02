@@ -72,6 +72,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
 
+    // The kids' screen needs a microphone, and a real conversation is the only
+    // way to find out whether the content security policy strangles the audio
+    // pipeline — the voice SDK builds AudioWorklets from blob URLs and signals
+    // over LiveKit, and neither shows up on the dev server where no policy is
+    // applied.
+    permissions: ['microphone'],
+    launchOptions: {
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        '--autoplay-policy=no-user-gesture-required',
+      ],
+    },
+
     // Playwright's own Chrome for Testing build could not be downloaded in
     // this environment, so the tests drive the Chrome already installed on the
     // machine. Same major version, and the alternative is no browser testing.

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+    <title>Pip</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+    <link rel="stylesheet" href="./src/styles/pip.css" />
+  </head>
+  <body class="pip">
+    <!-- Everything lives on one page. The microphone is only granted on a user
+         gesture, and a gesture does not survive a navigation, so the parent's
+         tap on Start has to be the same tap that opens the conversation. -->
+
+    <div id="notice" class="notice notice--error pip__notice" role="alert"></div>
+
+    <!-- 1. The PIN ------------------------------------------------------- -->
+    <section id="stage-pin" class="pip__stage hidden">
+      <div class="pip__panel">
+        <h1 class="pip__heading" id="pin-heading">Parent PIN</h1>
+        <p class="muted" id="pin-explainer">
+          So a session can only be started by you.
+        </p>
+        <form id="pin-form" novalidate>
+          <div class="field">
+            <label class="visually-hidden" for="pin">PIN</label>
+            <input
+              id="pin"
+              class="pip__pin"
+              type="password"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="6"
+              placeholder="••••"
+            />
+            <p class="field__error" id="pin-error"></p>
+          </div>
+          <button class="btn btn--block" id="pin-submit" type="submit">Continue</button>
+        </form>
+        <p class="muted pip__aside" id="pin-forgot"></p>
+      </div>
+    </section>
+
+    <!-- 2. Who, and why ------------------------------------------------- -->
+    <section id="stage-setup" class="pip__stage hidden">
+      <div class="pip__panel">
+        <h1 class="pip__heading">Who needs help?</h1>
+        <div class="chips" id="who"></div>
+
+        <div class="field">
+          <label class="field__label" for="context">What happened? (optional)</label>
+          <p class="field__hint">
+            One line is plenty. Pip mentions it gently and then turns to them.
+          </p>
+          <input
+            id="context"
+            type="text"
+            maxlength="300"
+            placeholder="They are fighting over the Lego tower."
+          />
+        </div>
+
+        <p class="muted" id="minutes"></p>
+
+        <button class="btn btn--block" id="start" type="button">Start</button>
+        <p class="muted pip__aside">
+          Stay nearby. Pip is your helper, not a babysitter.
+        </p>
+        <p class="pip__aside">
+          <a href="/home.html">Back</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- 3. The blob ----------------------------------------------------- -->
+    <section id="stage-live" class="pip__stage pip__stage--live hidden">
+      <canvas id="blob" class="pip__blob" aria-hidden="true"></canvas>
+
+      <!-- Deliberately few words: the youngest child using this is five. The
+           blob carries the meaning; this is for the grown-up in the room. -->
+      <p class="pip__status" id="status" role="status" aria-live="polite"></p>
+
+      <button class="pip__end" id="end" type="button">Finish</button>
+    </section>
+
+    <!-- 4. Finished ----------------------------------------------------- -->
+    <section id="stage-done" class="pip__stage hidden">
+      <div class="pip__panel pip__panel--centred">
+        <h1 class="pip__heading">All done</h1>
+        <p class="muted" id="done-detail">Pip has stopped listening.</p>
+        <p class="pip__aside">
+          <a class="btn" href="/home.html">Back</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- The safety alert, over everything ------------------------------- -->
+    <div id="alert" class="pip__alert hidden" role="alertdialog" aria-labelledby="alert-heading">
+      <div class="pip__alert-inner">
+        <h2 id="alert-heading">Please come over</h2>
+        <p>
+          Pip heard something it thinks you should hear about, and has stopped
+          the conversation. Ask them gently — Pip has not told us what it was,
+          and will not.
+        </p>
+        <button class="btn" id="alert-ok" type="button">I'm here</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/pip.js"></script>
+  </body>
+</html>

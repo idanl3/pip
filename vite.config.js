@@ -54,13 +54,44 @@ export default defineConfig(({ mode, command }) => {
    * Phase 4 adds the ElevenLabs origins to connect-src and media-src, and
    * nothing else should ever be added without a reason written down here.
    */
+  /**
+   * ElevenLabs' own hosts, read out of the installed SDK rather than guessed.
+   *
+   * The livekit hosts carry the WebRTC signalling and are easy to miss: with
+   * only api.elevenlabs.io allowed, a session appears to start and then no
+   * audio ever arrives. The residency variants are included because which one
+   * is used depends on the account, and a missing one fails exactly the same
+   * baffling way.
+   */
+  const elevenLabs = [
+    'https://api.elevenlabs.io',
+    'wss://api.elevenlabs.io',
+    'wss://api.eu.residency.elevenlabs.io',
+    'wss://api.in.residency.elevenlabs.io',
+    'wss://livekit.rtc.elevenlabs.io',
+    'wss://livekit.rtc.eu.residency.elevenlabs.io',
+    'wss://livekit.rtc.in.residency.elevenlabs.io',
+  ].join(' ');
+
   const csp = [
     "default-src 'none'",
-    "script-src 'self'",
+    // blob: is needed, and is a real concession rather than an oversight.
+    // The voice SDK builds its microphone pipeline as AudioWorklet modules
+    // from blob URLs, and a worklet module is fetched under script-src, so
+    // without this the kids' screen gets no microphone at all. It does mean a
+    // script the page itself constructs may run, which is why nothing else in
+    // this policy is loosened.
+    "script-src 'self' blob:",
     "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self'",
-    `connect-src 'self' ${supabase} ${supabaseSocket}`.replace(/\s+/g, ' ').trim(),
+    "worker-src 'self' blob:",
+    // Pip's voice arrives as a WebRTC stream, but the SDK also decodes audio
+    // through blob URLs on some paths.
+    "media-src 'self' blob:",
+    `connect-src 'self' ${supabase} ${supabaseSocket} ${elevenLabs}`
+      .replace(/\s+/g, ' ')
+      .trim(),
     "manifest-src 'self'",
     "base-uri 'none'",
     // No form is ever submitted to a server: everything goes through fetch.

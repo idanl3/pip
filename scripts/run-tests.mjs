@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 /**
  * Runs the browser suite in one of its three modes.
@@ -31,10 +32,18 @@ switch (mode) {
     process.exit(2);
 }
 
-const result = spawnSync('npx', ['playwright', 'test', ...passthrough], {
+// Run Playwright's own CLI with this Node, rather than going through npx.
+//
+// Two dead ends got us here. With `shell: true`, Windows re-splits the joined
+// command string, so `--grep "two words"` arrived as three arguments and
+// Playwright reported "No tests found". Without a shell, modern Node refuses
+// to spawn npx.cmd at all and fails silently. Invoking the CLI script
+// directly has neither problem: no shell, no .cmd shim, no quoting.
+const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
+
+const result = spawnSync(process.execPath, [cli, 'test', ...passthrough], {
   stdio: 'inherit',
   env,
-  shell: true,
 });
 
 process.exit(result.status ?? 1);
