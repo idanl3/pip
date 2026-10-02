@@ -1,6 +1,6 @@
 # Where the project stands
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-02
 
 Three files carry the whole handover. Read all of them before doing anything:
 
@@ -13,9 +13,6 @@ Three files carry the whole handover. Read all of them before doing anything:
 ---
 
 ## Right now
-
-**Phase 1 is complete.** The site is live on HTTPS at
-https://pip.linnewiel.com with HTTP redirecting to it.
 
 **Phases 1 to 4 are done.** A family can be invited, join, describe their
 children, be approved, and hold a real voice session with Pip. Verified end to
@@ -46,7 +43,7 @@ the scheduled job that also keeps the free-tier project awake.
 | # | Phase | State |
 | --- | --- | --- |
 | 1 | Project setup, Pages, domain | **Done** |
-| 2 | Accounts and onboarding | **In progress.** Schema, policies and triggers done and tested. Login, onboarding form and admin screen still to build |
+| 2 | Accounts and onboarding | **Done.** Invite links, login, onboarding form, admin approval screen |
 | 3 | Agent templating | **Done.** Prompt templated and pushed, seven variables with defaults, `end_call` enabled, privacy fixed |
 | 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone |
 | 5 | Minute tracking and limits | Not started |
@@ -68,9 +65,10 @@ Names only below, never values.
 | `SUPABASE_DB_HOST` | set | The pooler, not the direct host. See the gotchas |
 | `SUPABASE_DB_USER` | set | `postgres.<project-ref>`, the pooler username form |
 | `SUPABASE_ACCESS_TOKEN` | set | Scoped token, **expires around 2026-12-30** |
-| `ELEVENLABS_API_KEY` | empty | Phase 3 |
-| `ELEVENLABS_AGENT_ID_EN` | empty | Phase 3 |
-| `SUPABASE_SECRET_KEY` | empty | Only if a function must bypass row-level security |
+| `ELEVENLABS_API_KEY` | set | Also set as an edge function secret |
+| `ELEVENLABS_AGENT_ID_EN` | set | Also set as an edge function secret |
+| `ELEVENLABS_AGENT_ID_HE` | set | Hebrew agent, out of scope; recorded so it need not be looked up |
+| `SUPABASE_SECRET_KEY` | **not needed** | Functions read `SUPABASE_SECRET_KEYS`, which the platform injects |
 
 Load it all with `. .\scripts\load-env.ps1`, which also refreshes PATH and
 assembles `PIP_DB_URL`. Dot-source it; running it does nothing useful.
@@ -115,9 +113,13 @@ node agent/push.mjs --apply    # push, then read it back and verify
 ```
 
 The push refuses to run if a variable has no default, or if the prompt contains
-a hardcoded child profile. After pushing it re-reads the agent and checks nine
+a hardcoded child profile. After pushing it re-reads the agent and checks ten
 things, including that the model, voice, privacy settings and duration cap were
 left alone.
+
+It also owns the settings, not just the prompt: the fifteen-minute cap, the
+45-second silence timeout, audio recording off and 7-day retention, each with
+the reason written beside it.
 
 `agent/migrate-live-prompt.mjs` is history: the one-time script that generated
 the template from the live agent. Kept so the provenance of that file is
@@ -130,17 +132,27 @@ visible.
 ```
 
 Creates two real accounts, attacks the schema with them, deletes them again.
-Run it after touching any policy, trigger or grant. 20 checks; anything other
-than "20 passed, 0 failed" means a rule stopped holding.
+Run it after touching any policy, trigger or grant. 28 checks; anything other
+than "28 passed, 0 failed" means a rule stopped holding. `test-functions.ps1`
+does the same for the edge functions, with 26.
 
 ### The database schema
 
-Three tables. `admins` is the roster of people who may approve families, and
-has **no grants and no policies at all**, so it is unreachable through the API
-— only the security-definer function `is_admin()` can see inside it.
-`families` is one row per parent account. `children` holds first name, age,
-gender and two short free-text notes, and nothing else; it is the most
-sensitive table in the project and should stay that small.
+Five tables and one view.
+
+`admins` is the roster of people who may approve families, and has **no grants
+and no policies at all**, so it is unreachable through the API — only the
+security-definer `is_admin()` can see inside. `invites` is the same: admin-only,
+so a parent cannot list or probe for codes.
+
+`families` is one row per parent account. `children` holds a first name, an age
+and two short notes, and nothing else — it is the most sensitive table here and
+should stay that small. The `gender` column exists but is **not collected**,
+because the English prompt never reads it; see decision 14.
+
+`sessions` records when Pip ran and for how long, and deliberately **not which
+children took part**. `family_usage` derives minutes used this month from
+sessions, so a counter cannot drift out of step.
 
 Status, reviewer notes and minute limits belong to the admin. Parents cannot
 write them even by sending the fields directly — a trigger puts them back —
