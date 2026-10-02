@@ -1,6 +1,7 @@
 import { requireSession } from './lib/auth.js';
 import { loadFamily } from './lib/data.js';
 import { supabase } from './lib/supabase.js';
+import { siteState, wasEverGranted } from './lib/microphone.js';
 
 /**
  * The launch screen.
@@ -59,6 +60,7 @@ const BLOCKED = {
   if (family.status === 'approved') {
     ready.classList.remove('hidden');
     await showMinutes(family);
+    await nudgeAboutMicrophone();
     return;
   }
 
@@ -72,6 +74,20 @@ const BLOCKED = {
 })().catch((error) => {
   notice.textContent = error.message;
 });
+
+/**
+ * A quiet word, when this device has never given Pip the microphone.
+ *
+ * Deliberately not a prompt: asking for a permission on a screen nobody
+ * requested it from is how a browser learns to stop asking. It is a sentence
+ * pointing at the place where a parent can check it with a tap, on an
+ * afternoon rather than during a fight.
+ */
+async function nudgeAboutMicrophone() {
+  if (wasEverGranted()) return;
+  if ((await siteState()) === 'granted') return;
+  document.querySelector('#mic-nudge').classList.remove('hidden');
+}
 
 /**
  * Minutes left this month, in the footer rather than beside the button.

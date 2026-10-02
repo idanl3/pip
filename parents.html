@@ -40,6 +40,21 @@
         </p>
       </div>
 
+      <!-- The microphone, checked here on purpose.
+           A phone that will not give up its microphone is a twenty-minute
+           problem, and the kids' screen is the worst possible place to
+           discover it: a fight is already happening. So it is offered here,
+           where there is time, and by the time anyone presses Start it has
+           usually been granted already. -->
+      <div class="card">
+        <p class="card__title">Microphone</p>
+        <p class="mic__state" id="mic-state"></p>
+        <div id="mic-help" class="notice notice--error mic hidden" role="alert"></div>
+        <button type="button" class="btn btn--quiet" id="mic-check">
+          Check the microphone
+        </button>
+      </div>
+
       <!-- The children, names only. Their descriptions are one tap further
            in, and only for the child being changed. -->
       <div class="card">

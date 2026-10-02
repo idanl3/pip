@@ -3,6 +3,13 @@ import { loadFamily } from './lib/data.js';
 import { PipBlob } from './lib/blob.js';
 import { PipSession } from './lib/session.js';
 import { requirePin } from './lib/pin-gate.js';
+import {
+  requestMicrophone,
+  isMicrophoneError,
+  explainRefusal,
+  refusalDetail,
+  renderRefusal,
+} from './lib/microphone.js';
 
 /**
  * Pip's own screen.
@@ -31,7 +38,7 @@ const connectingLine = document.querySelector('#connecting');
 const announce = document.querySelector('#announce');
 const endButton = document.querySelector('#end');
 const retryButton = document.querySelector('#retry');
-const noticeDetail = document.querySelector('#notice-detail');
+const micHelp = document.querySelector('#mic-help');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -41,30 +48,41 @@ let session = null;
 const transcript = [];
 
 /**
- * What the button under the message does.
+ * Two kinds of failure, because they need two different things from a parent.
  *
- * 'microphone' makes it ask for the microphone and nothing else. 'reload'
- * starts the page over, which is all that can be done about anything else.
+ * Anything we got wrong gets a sentence. A microphone refusal gets a short
+ * list of steps, because the fix is on a settings screen somewhere and a
+ * paragraph describing three of them is a paragraph nobody finishes.
  */
 let retryAction = 'reload';
 
-function fail(message, { offerRetry = false, detail = '', action = 'reload' } = {}) {
+function fail(message) {
   notice.textContent = message;
-  noticeDetail.textContent = detail;
-  retryAction = action;
-  retryButton.textContent = action === 'microphone' ? 'Allow the microphone' : 'Try again';
-  retryButton.classList.toggle('hidden', !offerRetry);
+  micHelp.classList.add('hidden');
+  retryAction = 'reload';
+  retryButton.textContent = 'Try again';
+  retryButton.classList.toggle('hidden', !message);
+}
+
+async function failMicrophone(error) {
+  notice.textContent = '';
+  renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
+  micHelp.classList.remove('hidden');
+  retryAction = 'microphone';
+  retryButton.textContent = 'Check again';
+  retryButton.classList.remove('hidden');
 }
 
 /**
- * The bare request.
+ * Checking again, with nothing in front of the request.
  *
  * getUserMedia is the first thing this click does - no await, no network, no
- * work of any kind in front of it. That matters because it is also the
- * experiment: if a permission prompt appears here and did not appear a second
- * earlier, the problem is something our page was doing before asking. If no
- * prompt appears even here, nothing in this page can cause one, and the block
- * is outside the browser tab.
+ * work of any kind before it. That started as an experiment, to find out
+ * whether something this page did before asking was costing the prompt. It was
+ * not: a click that asks for nothing else is still refused on a device whose
+ * microphone is switched off somewhere outside the browser. It stays because
+ * it is also the right shape - a parent who has just changed a setting should
+ * get back into the session with one tap rather than starting over.
  */
 retryButton.addEventListener('click', () => {
   if (retryAction !== 'microphone' || !navigator.mediaDevices?.getUserMedia) {
@@ -83,11 +101,7 @@ async function continueAfterMicrophone(asking, started) {
   } catch (error) {
     error.pipElapsedMs = Math.round(performance.now() - started);
     retryButton.disabled = false;
-    fail(await microphoneProblem(error), {
-      offerRetry: true,
-      detail: await microphoneDetail(error),
-      action: 'microphone',
-    });
+    await failMicrophone(error);
     return;
   }
 
@@ -150,19 +164,20 @@ function setConversationState(state) {
     explainer: 'So a session can only be started by you.',
   });
 
-  // The microphone first, with nothing at all between it and the tap that
-  // accepted the PIN. Raising the blob was here and has moved below: it is
-  // only a few milliseconds of canvas work, but when the thing being debugged
-  // is whether a permission request arrives in time, "only a few
-  // milliseconds" is a guess and not having it there is a fact.
+  // The microphone first, with nothing between it and the tap that accepted
+  // the PIN. Raising the blob was here and has moved below: it is only a few
+  // milliseconds of canvas work, but a permission request wants nothing at all
+  // in front of it.
+  //
+  // By the time a family reaches this screen the microphone has usually been
+  // granted already, in the parents' portal, on a quiet afternoon. That is the
+  // whole point of the check being there: finding out that a phone has its
+  // microphone switched off is survivable on a Tuesday and is not survivable
+  // with two children shouting.
   try {
-    await askForMicrophone();
+    await requestMicrophone();
   } catch (error) {
-    fail(await microphoneProblem(error), {
-      offerRetry: true,
-      detail: await microphoneDetail(error),
-      action: 'microphone',
-    });
+    await failMicrophone(error);
     return;
   }
 
@@ -170,148 +185,6 @@ function setConversationState(state) {
 
   await startSession();
 })().catch((error) => fail(error.message));
-
-/* --- the microphone ------------------------------------------------------
-
-   Asked for here rather than left to the voice SDK, which requests it only
-   after our edge function has issued a conversation token - a round trip, and
-   a cold start on a free plan.
-
-   On Android Chrome that is too late. The permission prompt needs the tap that
-   accepted the PIN to still count as user activation, and that expires in a
-   few seconds; past it Chrome refuses the request outright instead of asking.
-   The parent sees "allow it in your browser" having never been offered the
-   chance, which is exactly what happened on the owner's phone.
-
-   None of the browser tests could have caught it: they run Chrome with
-   --use-fake-ui-for-media-stream, which grants the microphone without asking
-   and therefore without caring when it was asked. */
-
-/**
- * Asks, then hands the device straight back.
- *
- * Only the permission is wanted here, not the audio: the SDK opens its own
- * capture a moment later and a granted microphone stays granted for the page.
- * Holding the track open until then was the first attempt and is worse - some
- * Android devices will not give the same microphone to a second capture, so
- * keeping it would risk breaking the very thing this is fixing.
- */
-async function askForMicrophone() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw Object.assign(new Error('no microphone API'), { name: 'NotSupportedError' });
-  }
-
-  const started = performance.now();
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (error) {
-    error.pipElapsedMs = Math.round(performance.now() - started);
-    throw error;
-  }
-  for (const track of stream.getTracks()) track.stop();
-}
-
-/**
- * What the browser has already decided about the microphone for this site.
- *
- * 'denied' means the site itself is blocked, which is the one state a parent
- * can fix from the address bar. Anything else means the refusal came from
- * further out. Not every browser answers this query, so 'unknown' is a real
- * third answer rather than a failure.
- */
-async function sitePermission() {
-  try {
-    const status = await navigator.permissions.query({ name: 'microphone' });
-    return status.state;
-  } catch {
-    return 'unknown';
-  }
-}
-
-/**
- * Each of these is a different thing for a parent to do about it.
- *
- * NotAllowedError is two unrelated problems wearing one name, and the fix is
- * in a different place for each: the browser has blocked this site, or the
- * phone has never given the browser the microphone at all. Telling a parent to
- * tap the address bar when the block is at the operating system level sends
- * them looking for a setting that is not there.
- */
-async function microphoneProblem(error) {
-  switch (error?.name) {
-    case 'NotAllowedError':
-    case 'SecurityError': {
-      const state = await sitePermission();
-      if (state === 'denied') {
-        return (
-          'Your browser has blocked the microphone for this site. Tap the ' +
-          'icon just left of the web address, open Permissions, and set ' +
-          'Microphone to Allow. Then try again.'
-        );
-      }
-      if (state === 'prompt' || state === 'granted') {
-        // This site has never been blocked - the browser would say 'denied'.
-        // So the refusal was made before this page was involved at all, and
-        // every place worth looking is outside the browser tab. Listed
-        // device-first, because a phone-wide microphone switch refuses
-        // everything and is the easiest of the three to have left off.
-        return (
-          'Your phone or browser is blocking the microphone before this site ' +
-          'is ever asked. Three places to look: the phone\u2019s own microphone ' +
-          'switch in Settings under Privacy; the browser\u2019s microphone ' +
-          'permission in Settings under Apps; and Site settings inside the ' +
-          'browser, where Microphone should be set to ask.'
-        );
-      }
-      return (
-        'Pip needs the microphone. Allow it for this site in your browser, ' +
-        'and check that your phone has given the browser microphone access.'
-      );
-    }
-    case 'NotFoundError':
-    case 'OverconstrainedError':
-      return 'No microphone was found on this device.';
-    case 'NotReadableError':
-    case 'AbortError':
-      return (
-        'Something else is using the microphone. Close any other call or ' +
-        'recording app, then try again.'
-      );
-    case 'NotSupportedError':
-      return 'This browser cannot reach the microphone. Chrome or Safari will work.';
-    default:
-      return `The microphone could not be opened (${error?.name ?? 'unknown error'}).`;
-  }
-}
-
-/**
- * How many microphones the browser admits to having.
- *
- * Zero is meaningful. A device-wide microphone switch - Android's privacy
- * toggle, or a laptop's hardware mute - takes the input away from the browser
- * entirely rather than refusing a site, and this is the only place that shows.
- */
-async function audioInputCount() {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    return devices.filter((device) => device.kind === 'audioinput').length;
-  } catch {
-    return '?';
-  }
-}
-
-/** The quiet line underneath, so a report can say what actually happened. */
-async function microphoneDetail(error) {
-  // How long the browser took to refuse. A prompt a person actually saw and
-  // dismissed takes seconds; a refusal with no prompt comes back in single
-  // milliseconds. It is the one measurement that separates "they said no" from
-  // "they were never asked".
-  const took = error?.pipElapsedMs === undefined ? '' : ` \u00b7 ${error.pipElapsedMs}ms`;
-  const state = await sitePermission();
-  const inputs = await audioInputCount();
-  return `${error?.name ?? 'unknown'} \u00b7 site: ${state} \u00b7 inputs: ${inputs}${took}`;
-}
 
 /** The blob, running, before anything can go wrong. */
 function showStage() {
@@ -378,41 +251,9 @@ async function startSession() {
     blob?.stop();
     blob = null;
     stageLive.classList.add('hidden');
-    fail(await friendlyStartError(error), {
-      offerRetry: isMicrophoneError(error),
-      detail: isMicrophoneError(error) ? await microphoneDetail(error) : '',
-      action: isMicrophoneError(error) ? 'microphone' : 'reload',
-    });
+    if (isMicrophoneError(error)) await failMicrophone(error);
+    else fail(error?.message ?? 'Pip could not start. Please try again.');
   }
-}
-
-/**
- * A refusal a parent can act on.
- *
- * This used to match /permission|denied/ against the message as well as the
- * error name, which was far too wide. Any refusal that happened to use either
- * word - a database policy declining a row, a token refused upstream - was
- * reported to the parent as a microphone problem, so they went hunting through
- * browser settings for something that was never wrong. The message now only
- * mentions the microphone when the microphone is what failed.
- */
-const MICROPHONE_ERRORS = [
-  'NotAllowedError',
-  'NotFoundError',
-  'NotReadableError',
-  'SecurityError',
-  'OverconstrainedError',
-  'AbortError',
-  'NotSupportedError',
-];
-
-function isMicrophoneError(error) {
-  return MICROPHONE_ERRORS.includes(error?.name);
-}
-
-async function friendlyStartError(error) {
-  if (isMicrophoneError(error)) return microphoneProblem(error);
-  return error?.message ?? 'Pip could not start. Please try again.';
 }
 
 /* --- ending -------------------------------------------------------------- */

@@ -586,3 +586,50 @@ textarea[aria-invalid='true'] {
   gap: 0.5rem;
   justify-items: start;
 }
+
+/* --- the microphone check ------------------------------------------------
+   Shared by the parents' portal, where it is a calm setup step, and the kids'
+   screen, where it is the thing standing between a parent and a session. */
+
+.mic__heading {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.mic__steps {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: grid;
+  gap: 0.5rem;
+  line-height: 1.5;
+}
+
+.mic__detail {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+.mic__detail:empty {
+  display: none;
+}
+
+.mic__state {
+  margin: 0 0 0.75rem;
+  font-weight: 700;
+}
+
+.mic__state--ok {
+  color: #1d7a5f;
+}
+
+/* The one-line nudge under the Start button, when this device has never been
+   given the microphone. Quiet: it is a suggestion, not a failure. */
+.launch__nudge {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.launch__nudge a {
+  color: #b4502f;
+}

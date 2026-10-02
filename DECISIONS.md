@@ -743,3 +743,47 @@ many audio inputs the browser can see, and how long the refusal took. Zero
 inputs would mean a device-wide switch has taken the microphone away from the
 browser entirely, which is the only one of the three causes that leaves a trace
 a web page can read.
+
+
+## 32. The microphone is checked in the parents' portal, not discovered mid-fight
+
+The owner's verdict on the last three attempts was the right one: "I don't
+expect others to go into this... it won't work if families need to manually
+look for these settings."
+
+Both halves of that are true. A web page cannot grant itself a permission the
+operating system has withheld - that is what a permission is - so for the small
+number of devices in that state, somebody does have to open a settings screen.
+What was wrong was *when* they found out: at the moment of a fight, on the
+kids' screen, from a paragraph.
+
+So the parents' portal now has a **Microphone** card: current state, and a
+Check button whose tap calls `getUserMedia` with nothing in front of it. A
+parent does this once, on a quiet afternoon, and by the time anyone presses
+Start it is already granted. The launch screen carries one quiet line until
+that has happened - a sentence pointing at the portal, never a prompt, because
+asking for a permission on a screen nobody requested it from is how a browser
+learns to stop asking.
+
+A refusal is now a heading and a numbered list, chosen from what the browser
+reports:
+
+- site permission `denied` - the address bar, four taps;
+- zero audio inputs - a device-wide microphone switch, which takes the input
+  away from the browser entirely and is the only one of these that leaves a
+  trace a web page can read;
+- anything else - the browser's own operating system permission, then its
+  global site default.
+
+All of it moved into `src/lib/microphone.js`, because the kids' screen needs
+the same explanations at the worst possible moment and the portal needs them at
+the best one.
+
+**On testing a refusal.** No browser in this suite will ever refuse: Chrome
+runs with `--use-fake-ui-for-media-stream`, and a context with `permissions: []`
+still gets a working fake device, so even an explicit denial does not reach
+`getUserMedia`. The refusal path is therefore tested by replacing
+`getUserMedia` with one that rejects exactly as a blocked browser does, and
+letting the real code handle it. That is the only honest way to cover a branch
+the harness is built to make unreachable - and it is worth covering, because
+that branch is the one the only real device ever saw.

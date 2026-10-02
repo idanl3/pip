@@ -258,7 +258,7 @@ test("a parent can change one child without touching the others", async ({ page 
   // The launch screen carries one button and a word in the corner.
   await page.reload();
   await expect(page.locator('#ready')).toBeVisible();
-  await page.getByRole('link', { name: 'Parents' }).click();
+  await page.getByRole('link', { name: 'Parents', exact: true }).click();
   await page.waitForURL('**/parents.html');
 
   // No PIN on this device yet, so the gate offers to choose one.
@@ -316,4 +316,125 @@ test("a parent can change one child without touching the others", async ({ page 
   expect(rows[0].status).toBe('pending');
 
   expect(errors).toEqual([]);
+});
+
+/**
+ * The microphone check, where it belongs.
+ *
+ * A phone that will not give up its microphone is a twenty-minute problem, and
+ * the kids' screen is the worst place to find that out - a fight is already
+ * happening. So the portal offers the check, and the launch screen says so
+ * until it has passed once.
+ *
+ * Playwright grants the microphone without asking, so this can only prove the
+ * happy path and the wiring. The refusal branches are unreachable from any
+ * browser test, which is the whole reason they spell out what to do.
+ */
+/** An approved family, signed in, on the launch screen. */
+async function approvedFamily(page, name = 'Yod') {
+  const email = testEmail();
+  await page.goto(`/join.html?code=${await createInvite()}`);
+  await page.fill('#email', email);
+  await page.fill('#password', TEST_PASSWORD);
+  await page.click('#submit');
+  await page.waitForURL('**/onboarding.html');
+
+  const children = page.locator('#children > .child');
+  await children.nth(1).locator('.js-remove').click();
+  await children.nth(0).locator('.js-name').fill(name);
+  await children.nth(0).locator('.js-age').fill('8');
+  await page.locator('#parent-chips .chip', { hasText: 'Mum' }).click();
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  await sql(`
+    update public.families set status = 'approved'
+     where owner_id = (select id from auth.users where email = '${email}')
+  `);
+  return email;
+}
+
+/** Into the portal, past the PIN gate, which has none set on a fresh context. */
+async function openPortal(page) {
+  await page.getByRole('link', { name: 'Parents', exact: true }).click();
+  await page.waitForURL('**/parents.html');
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#portal:not(.hidden)');
+}
+
+test.describe('before the microphone has been granted', () => {
+  // Every other context in this suite is handed the microphone, which is what
+  // lets a test hold a real conversation and is also what hides this entirely.
+  test.use({ permissions: [] });
+
+  /**
+   * The microphone check, where it belongs.
+   *
+   * A phone that will not give up its microphone is a twenty-minute problem,
+   * and the kids' screen is the worst place to find that out: a fight is
+   * already happening. So the portal offers the check and the launch screen
+   * mentions it until it has passed once.
+   */
+  test('a parent can check the microphone before they need it', async ({ page }) => {
+    const errors = watchForErrors(page);
+    await approvedFamily(page);
+
+    // The launch screen says so, before anyone has needed it.
+    await page.reload();
+    await expect(page.locator('#mic-nudge')).toBeVisible();
+
+    await openPortal(page);
+    await expect(page.locator('#mic-state')).not.toHaveText(/pip can hear you/i);
+
+    // Chrome is launched with a fake capture device, so the check succeeds
+    // here however the context's permissions are set. What is being proved is
+    // the wiring: the check runs, it records the result, and both screens stop
+    // asking.
+    await page.getByRole('button', { name: /check the microphone/i }).click();
+    await expect(page.locator('#mic-state')).toHaveText(/pip can hear you/i);
+    await expect(page.locator('#mic-help')).toBeHidden();
+
+    await page.goto('/home.html');
+    await page.waitForSelector('#ready:not(.hidden)');
+    await expect(page.locator('#mic-nudge')).toBeHidden();
+
+    expect(errors).toEqual([]);
+  });
+
+  /**
+   * A refusal is a list of steps, not a sentence.
+   *
+   * No browser in this suite will actually refuse - the fake capture device
+   * answers every request, which is the whole reason the owner's phone found a
+   * bug none of these tests could. So the refusal is injected: getUserMedia is
+   * replaced with one that rejects exactly as a blocked browser does, and
+   * everything after that is the real code path.
+   */
+  test('a refused microphone is explained as steps', async ({ page }) => {
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = () =>
+        Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+    });
+
+    await approvedFamily(page, 'Kaf');
+    await openPortal(page);
+    await page.getByRole('button', { name: /check the microphone/i }).click();
+
+    const help = page.locator('#mic-help');
+    await expect(help).toBeVisible();
+    await expect(help.locator('.mic__heading')).toContainText(/microphone/i);
+    // Steps, because this is read on a phone by somebody who is not a computer
+    // person. A paragraph naming three settings screens is one nobody finishes.
+    expect(await help.locator('.mic__steps li').count()).toBeGreaterThan(1);
+    // And the line that makes a text message from a parent into a bug report.
+    await expect(help.locator('.mic__detail')).toContainText('NotAllowedError');
+
+    // Nothing was recorded as granted, so the launch screen still says so.
+    await page.goto('/home.html');
+    await page.waitForSelector('#ready:not(.hidden)');
+    await expect(page.locator('#mic-nudge')).toBeVisible();
+  });
 });

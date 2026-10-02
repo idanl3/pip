@@ -2,6 +2,14 @@ import { requireSession, signOut, isAdmin } from './lib/auth.js';
 import { requirePin, grantHandoff } from './lib/pin-gate.js';
 import { loadFamily, loadChildren, describeStatus } from './lib/data.js';
 import { clearPin } from './lib/pin.js';
+import {
+  markGranted,
+  siteState,
+  wasEverGranted,
+  explainRefusal,
+  refusalDetail,
+  renderRefusal,
+} from './lib/microphone.js';
 import { supabase } from './lib/supabase.js';
 
 /**
@@ -22,6 +30,9 @@ const statusBody = document.querySelector('#status-body');
 const reviewNote = document.querySelector('#review-note');
 const minutesLine = document.querySelector('#minutes');
 const kidsHost = document.querySelector('#kids');
+const micState = document.querySelector('#mic-state');
+const micHelp = document.querySelector('#mic-help');
+const micCheck = document.querySelector('#mic-check');
 
 (async function start() {
   const session = await requireSession();
@@ -50,6 +61,8 @@ const kidsHost = document.querySelector('#kids');
 
   await showMinutes(family);
   renderKids(await loadChildren(family.id));
+
+  await showMicrophone();
 
   if (await isAdmin()) {
     document.querySelector('#admin-link').classList.remove('hidden');
@@ -114,6 +127,68 @@ function renderKids(kids) {
 document.querySelector('#portal').addEventListener('click', (event) => {
   if (event.target.closest('a[href^="/onboarding.html"]')) grantHandoff();
 });
+
+/* --- the microphone ------------------------------------------------------
+
+   Checked here, where it costs nothing, rather than discovered on the kids'
+   screen in the middle of a fight. A web page cannot grant itself a
+   permission the phone has withheld - that is the point of a permission - so
+   the most useful thing it can do is find out early and say exactly which
+   setting is in the way. */
+
+async function showMicrophone() {
+  const state = await siteState();
+
+  if (state === 'granted' || wasEverGranted()) {
+    micState.textContent = 'Pip can hear you on this device.';
+    micState.classList.add('mic__state--ok');
+    micCheck.textContent = 'Check again';
+    return;
+  }
+
+  micState.textContent =
+    state === 'denied'
+      ? 'This device has blocked the microphone.'
+      : 'Not checked on this device yet.';
+  micState.classList.remove('mic__state--ok');
+}
+
+/**
+ * The request goes first, with nothing in front of it.
+ *
+ * A browser only grants a microphone during a tap, and anything slow before
+ * the request - a database read, a round trip - can cost the prompt.
+ */
+micCheck.addEventListener('click', () => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    micState.textContent = 'This browser cannot reach the microphone.';
+    return;
+  }
+  runCheck(navigator.mediaDevices.getUserMedia({ audio: true }), performance.now());
+});
+
+async function runCheck(asking, started) {
+  micCheck.disabled = true;
+  micState.textContent = 'Asking\u2026';
+
+  try {
+    const stream = await asking;
+    for (const track of stream.getTracks()) track.stop();
+    // So the launch screen stops suggesting a check that has already passed.
+    markGranted();
+  } catch (error) {
+    error.pipElapsedMs ??= Math.round(performance.now() - started);
+    renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
+    micHelp.classList.remove('hidden');
+    micCheck.disabled = false;
+    await showMicrophone();
+    return;
+  }
+
+  micHelp.classList.add('hidden');
+  micCheck.disabled = false;
+  await showMicrophone();
+}
 
 /**
  * Setting a new PIN.

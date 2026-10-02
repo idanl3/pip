@@ -183,7 +183,7 @@ test('an owner who is also a family lands on their own home, not the admin scree
 
   // The admin area is reachable through the parents' portal, which is behind
   // the PIN like everything else a parent might want.
-  await page.getByRole('link', { name: 'Parents' }).click();
+  await page.getByRole('link', { name: 'Parents', exact: true }).click();
   await page.waitForURL('**/parents.html');
   await passPinGate(page, { reveal: '#portal' });
 
