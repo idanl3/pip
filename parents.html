@@ -50,6 +50,13 @@
         <p class="card__title">Microphone</p>
         <p class="mic__state" id="mic-state"></p>
         <div id="mic-help" class="notice notice--error mic hidden" role="alert"></div>
+        <!-- Chrome renders and owns this one. It is in the markup rather
+             than built on demand because the browser keeps it disabled for
+             about half a second after it appears. Shown only where the
+             browser has it; everywhere else the plain button below is used. -->
+        <usermedia id="mic-grant" class="mic-grant hidden">
+          <button type="button">Allow the microphone</button>
+        </usermedia>
         <button type="button" class="btn btn--quiet" id="mic-check">
           Check the microphone
         </button>

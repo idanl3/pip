@@ -9,6 +9,8 @@ import {
   explainRefusal,
   refusalDetail,
   renderRefusal,
+  supportsGrantControl,
+  wireGrantControl,
 } from './lib/microphone.js';
 
 /**
@@ -39,6 +41,7 @@ const announce = document.querySelector('#announce');
 const endButton = document.querySelector('#end');
 const retryButton = document.querySelector('#retry');
 const micHelp = document.querySelector('#mic-help');
+const micGrant = document.querySelector('#mic-grant');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -59,6 +62,7 @@ let retryAction = 'reload';
 function fail(message) {
   notice.textContent = message;
   micHelp.classList.add('hidden');
+  micGrant.classList.add('hidden');
   retryAction = 'reload';
   retryButton.textContent = 'Try again';
   retryButton.classList.toggle('hidden', !message);
@@ -68,9 +72,27 @@ async function failMicrophone(error) {
   notice.textContent = '';
   renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
   micHelp.classList.remove('hidden');
+
+  // Chrome's own control first, where it exists: tapping it opens the
+  // browser's recovery flow, which is a tap rather than a trip through
+  // settings. Our own button stays underneath, because the control cannot
+  // overrule an operating system that has taken the microphone away.
+  micGrant.classList.toggle('hidden', !supportsGrantControl());
+
   retryAction = 'microphone';
   retryButton.textContent = 'Check again';
   retryButton.classList.remove('hidden');
+}
+
+if (supportsGrantControl()) {
+  wireGrantControl(micGrant, {
+    onGranted: async () => {
+      fail('');
+      showStage();
+      await startSession();
+    },
+    onRefused: (error) => failMicrophone(error),
+  });
 }
 
 /**

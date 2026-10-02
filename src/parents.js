@@ -9,6 +9,8 @@ import {
   explainRefusal,
   refusalDetail,
   renderRefusal,
+  supportsGrantControl,
+  wireGrantControl,
 } from './lib/microphone.js';
 import { supabase } from './lib/supabase.js';
 
@@ -33,6 +35,7 @@ const kidsHost = document.querySelector('#kids');
 const micState = document.querySelector('#mic-state');
 const micHelp = document.querySelector('#mic-help');
 const micCheck = document.querySelector('#mic-check');
+const micGrant = document.querySelector('#mic-grant');
 
 (async function start() {
   const session = await requireSession();
@@ -139,6 +142,15 @@ document.querySelector('#portal').addEventListener('click', (event) => {
 async function showMicrophone() {
   const state = await siteState();
 
+  // Where the browser has its own grant control, use that instead of ours.
+  // A tap on it is a trusted signal Chrome will honour even when it has
+  // decided to suppress script-triggered prompts, and where the microphone
+  // was already refused it opens Chrome's recovery flow rather than sending a
+  // parent into settings.
+  const browserOwned = supportsGrantControl() && state !== 'granted' && !wasEverGranted();
+  micGrant.classList.toggle('hidden', !browserOwned);
+  micCheck.classList.toggle('hidden', browserOwned);
+
   if (state === 'granted' || wasEverGranted()) {
     micState.textContent = 'Pip can hear you on this device.';
     micState.classList.add('mic__state--ok');
@@ -151,6 +163,21 @@ async function showMicrophone() {
       ? 'This device has blocked the microphone.'
       : 'Not checked on this device yet.';
   micState.classList.remove('mic__state--ok');
+}
+
+if (supportsGrantControl()) {
+  wireGrantControl(micGrant, {
+    onGranted: async () => {
+      micHelp.classList.add('hidden');
+      markGranted();
+      await showMicrophone();
+    },
+    onRefused: async (error) => {
+      renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
+      micHelp.classList.remove('hidden');
+      await showMicrophone();
+    },
+  });
 }
 
 /**

@@ -209,12 +209,70 @@ export async function explainRefusal(error) {
   }
 }
 
+/* --- the browser's own grant control -------------------------------------
+
+   Chrome 151 ships <usermedia>: a button the browser renders and owns, which
+   a person taps to grant the microphone. It matters here for two reasons that
+   a scripted getUserMedia call cannot touch.
+
+   A tap on it is a trusted signal of intent, so Chrome will show its prompt
+   even where it has decided to quietly suppress script-triggered ones. A
+   refusal with no visible prompt, on a site the browser still reports as
+   'prompt' rather than 'denied', is exactly what that suppression looks like
+   from in here - and it is what the owner's phone has been doing.
+
+   And where the permission was already refused, tapping it opens Chrome's own
+   recovery flow rather than sending a parent into settings.
+
+   What it cannot do is overrule the operating system. If Android has taken
+   the microphone away from the browser, no page element gets it back, and the
+   written steps below are still the only answer. So this is an addition to
+   them, never a replacement.
+
+   Two findings from testing it, both of which shape how it is used:
+
+   - setConstraints({ audio: true }) is rejected. Each kind wants a constraint
+     object, so audio-only is setConstraints({ audio: {} }).
+   - The element is deliberately dead for about half a second after it is
+     attached or revealed, and says so with an InvalidStateError. That is an
+     anti-clickjacking measure. A person reading a sentence takes longer than
+     that, so it only bites if the element is created and clicked by a script,
+     but it is why these live in the markup rather than being built on demand.
+*/
+
+export function supportsGrantControl() {
+  return typeof window !== 'undefined' && 'HTMLUserMediaElement' in window;
+}
+
+/**
+ * Points a <usermedia> element at the microphone and reports what happens.
+ *
+ * `onRefused` receives the same DOMException shape as getUserMedia, so both
+ * paths can share one explanation.
+ */
+export function wireGrantControl(element, { onGranted, onRefused, onCancelled } = {}) {
+  element.setConstraints({ audio: {} });
+
+  element.addEventListener('stream', () => {
+    // Only the permission was wanted; the voice SDK opens its own capture.
+    for (const track of element.stream?.getTracks() ?? []) track.stop();
+    rememberGranted();
+    onGranted?.();
+  });
+
+  element.addEventListener('error', () => onRefused?.(element.error));
+  element.addEventListener('cancel', () => onCancelled?.());
+}
+
 /** The quiet line underneath, so a report can say what actually happened. */
 export async function refusalDetail(error) {
   const took = error?.pipElapsedMs === undefined ? '' : ` · ${error.pipElapsedMs}ms`;
+  // Chrome's own wording separates the cases: "Permission denied" is a block,
+  // "Permission dismissed" is a prompt that was swiped away. Worth carrying.
+  const said = error?.message ? ` · "${error.message}"` : '';
   return (
     `${error?.name ?? 'unknown'} · site: ${await siteState()} ` +
-    `· inputs: ${await audioInputCount()}${took}`
+    `· inputs: ${await audioInputCount()}${took}${said}`
   );
 }
 

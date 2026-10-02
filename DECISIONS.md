@@ -787,3 +787,49 @@ still gets a working fake device, so even an explicit denial does not reach
 letting the real code handle it. That is the only honest way to cover a branch
 the harness is built to make unreachable - and it is worth covering, because
 that branch is the one the only real device ever saw.
+
+
+## 33. There is a browser-owned grant button now, and Pip uses it
+
+Asked to check rather than assert, and the assertion in decision 32 was out of
+date. Chrome 151 shipped `<usermedia>`, a button the *browser* renders and
+owns, which a person taps to grant the camera or microphone. Stable Chrome is
+153. Verified against the Chrome installed on this machine rather than taken
+from the documentation:
+
+- `HTMLUserMediaElement` exists, with `stream`, `error`, `cancel`,
+  `onstream`/`onerror`/`oncancel` and `setConstraints`.
+- `setConstraints({ audio: true })` is **rejected**. Each kind wants a
+  constraint object, so audio-only is `setConstraints({ audio: {} })`.
+- The inner `<button>` is fallback content and measures 0x0; the browser paints
+  the real control, so the `<usermedia>` element itself is the thing to style
+  and the thing to click.
+- The control is deliberately dead for roughly half a second after it is
+  attached or revealed, reporting `InvalidStateError: the permission element is
+  disabled due to being recently attached to layout tree`. That is an
+  anti-clickjacking measure. Hence both elements live in the markup rather than
+  being built when a failure happens.
+
+Two things it does that a scripted `getUserMedia` cannot. A tap on it is a
+trusted signal of intent, so Chrome shows a prompt even where it has decided to
+quietly suppress script-triggered ones - and a refusal with no visible prompt,
+on a site the browser still reports as `prompt` rather than `denied`, is
+exactly what that suppression looks like from inside a page. And where the
+permission was already refused, tapping it opens Chrome's own recovery flow
+instead of sending a parent into settings. Chrome's own figures for the origin
+trial: Cisco's permission recovery rose from about 10% to over 65%, Zoom saw a
+46.9% fall in capture errors, Google Meet a 131% increase in successful
+recovery after an initial denial.
+
+What it cannot do is overrule the operating system. If Android has taken the
+microphone from the browser, or a device-wide switch is off, no element on a
+page gets it back. So the written steps stay as the fallback, and this is an
+addition to them rather than a replacement. Browsers without `<usermedia>` -
+Safari, Firefox - get the steps and our own button, which is what every test of
+that path now forces by deleting `HTMLUserMediaElement`.
+
+The grant itself still cannot be driven from a test: the prompt is browser
+chrome and the fake-device flag does not reach it, so a click fires `cancel`.
+What is tested is that the control is the one offered where it exists, that our
+button steps aside, and that `setConstraints` is still accepted - which would
+fail loudly if the constraint shape regressed.

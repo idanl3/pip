@@ -633,3 +633,15 @@ textarea[aria-invalid='true'] {
 .launch__nudge a {
   color: #b4502f;
 }
+
+/* Chrome paints this control itself and rejects styling that could be used to
+   disguise it - minimum contrast, no transparency, bounded size. Styling it
+   wrongly does not fail loudly; it disables the control, which would leave a
+   family with a dead button. So this sets position and size and nothing about
+   how it looks, and the written steps remain as the fallback either way. */
+
+.mic-grant {
+  display: block;
+  margin-block: 0.5rem 0.75rem;
+  font-size: 1rem;
+}

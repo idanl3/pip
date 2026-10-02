@@ -380,6 +380,14 @@ test.describe('before the microphone has been granted', () => {
    */
   test('a parent can check the microphone before they need it', async ({ page }) => {
     const errors = watchForErrors(page);
+
+    // Without the browser's own grant control, which is the path every
+    // browser that does not have <usermedia> takes. The test for the control
+    // itself is below; this one is our fallback button.
+    await page.addInitScript(() => {
+      delete window.HTMLUserMediaElement;
+    });
+
     await approvedFamily(page);
 
     // The launch screen says so, before anyone has needed it.
@@ -413,8 +421,49 @@ test.describe('before the microphone has been granted', () => {
    * replaced with one that rejects exactly as a blocked browser does, and
    * everything after that is the real code path.
    */
+  /**
+   * Chrome 151 ships <usermedia>: a button the browser renders and owns.
+   *
+   * A tap on it is a trusted signal of intent, so Chrome shows its prompt even
+   * where it has decided to suppress script-triggered ones - and a refusal
+   * with no visible prompt, on a site the browser still calls 'prompt' rather
+   * than 'denied', is what that suppression looks like from in here.
+   *
+   * The grant itself cannot be driven from a test: the prompt is browser
+   * chrome, and the fake-device flag does not reach it. What is checked is
+   * that the control is the one offered when the browser has it, and that our
+   * own button steps aside rather than sitting there as a second, worse
+   * option.
+   */
+  test('the browser owns the grant control where it has one', async ({ page }) => {
+    await approvedFamily(page, 'Lamed');
+    await openPortal(page);
+
+    const supported = await page.evaluate(() => 'HTMLUserMediaElement' in window);
+    test.skip(!supported, 'this browser has no <usermedia> element');
+
+    await expect(page.locator('#mic-grant')).toBeVisible();
+    await expect(page.locator('#mic-check')).toBeHidden();
+
+    // Constraints are set on it, which is what makes it a microphone control
+    // rather than a camera one. setConstraints({ audio: true }) is rejected by
+    // Chrome - each kind wants a constraint object - so this would throw if
+    // the wiring regressed.
+    expect(await page.evaluate(() => {
+      try {
+        document.querySelector('#mic-grant').setConstraints({ audio: {} });
+        return 'accepted';
+      } catch (error) {
+        return `${error.name}: ${error.message}`;
+      }
+    })).toBe('accepted');
+  });
+
   test('a refused microphone is explained as steps', async ({ page }) => {
     await page.addInitScript(() => {
+      // Our own button and our own written steps, which is what a browser
+      // without <usermedia> gets. The browser-owned control is covered above.
+      delete window.HTMLUserMediaElement;
       navigator.mediaDevices.getUserMedia = () =>
         Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
     });
