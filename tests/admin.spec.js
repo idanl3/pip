@@ -127,9 +127,10 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
   await expect(familyPage.locator('#review-note')).toContainText('a bit more about Zayin');
 
   // And editing should send it back to pending without the owner doing
-  // anything, because any parent edit means a fresh look.
-  await familyPage.locator('#children > .child').nth(0).locator('.js-personality-other')
-    .fill('Loves building things');
+  // anything, because any parent edit means a fresh look. The age, because
+  // the descriptions are no longer on this screen - they are one tap further
+  // in, on that child's own page.
+  await familyPage.locator('#children > .child').nth(0).locator('.js-age').fill('7');
   await familyPage.click('#submit');
   await familyPage.waitForURL('**/home.html');
   expect((await familyOf(familyEmail)).status).toBe('pending');

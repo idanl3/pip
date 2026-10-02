@@ -28,6 +28,10 @@
          not have to work out that the page needs reloading. -->
     <div class="pip__notice">
       <div id="notice" class="notice notice--error" role="alert"></div>
+      <!-- What the browser actually said. Small, quiet, and only ever filled
+           in when something failed - a pilot of five families is debugged by
+           the families, and "it didn't work" is not a bug report. -->
+      <p id="notice-detail" class="pip__detail"></p>
       <button type="button" id="retry" class="btn pip__retry hidden">Try again</button>
     </div>
 

@@ -56,6 +56,17 @@
   margin-inline: auto;
 }
 
+.pip__detail {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--pip-plum-soft);
+}
+
+.pip__detail:empty {
+  display: none;
+}
+
 .pip__retry {
   display: flex;
   margin: 0.75rem auto 0;

@@ -26,6 +26,15 @@ import {
  * the rest of the family hidden. Correcting an age should not mean rereading
  * three children's descriptions, and should not rewrite answers nobody
  * touched.
+ *
+ * Which is also why the whole-family form stops showing those descriptions
+ * once they have been written. On first run it has to - that is where a parent
+ * writes them. After that, every child's temperament and what they do in a
+ * fight was on one screen, behind nothing but a PIN, and reading "cries and
+ * finds it hard to stop" about yourself over a parent's shoulder is not
+ * something a seven-year-old should be able to do by picking up the tablet.
+ * Each child's answers are now one deliberate tap further in, one child at a
+ * time.
  */
 
 const SEPARATOR = '; ';
@@ -121,6 +130,13 @@ function addChild(child) {
     split(child.conflict_tendency, node.querySelector('.js-conflict-chips'), node.querySelector('.js-conflict-other'));
   }
 
+  // An existing child, on the whole-family form: name and age stay, the
+  // description does not. A child added just now keeps its questions, because
+  // they have to be answered somewhere.
+  if (child?.id && !onlyChildId) {
+    hideDescription(node, child);
+  }
+
   node.querySelector('.js-remove').addEventListener('click', () => {
     node.remove();
     renumber();
@@ -129,6 +145,28 @@ function addChild(child) {
   childrenHost.append(node);
   renumber();
   return node;
+}
+
+/**
+ * Folds a saved child's description away behind a link to their own page.
+ *
+ * The fields stay in the form rather than being removed, holding the values
+ * they were loaded with. That is deliberate: saving this form writes every
+ * child, so a field that had been emptied would quietly erase what the parent
+ * wrote. Hidden and unchanged, it round-trips to exactly what it already was.
+ */
+function hideDescription(node, child) {
+  const personality = node.querySelector('.js-personality-chips').closest('.field');
+  const conflict = node.querySelector('.js-conflict-chips').closest('.field');
+  personality.classList.add('hidden');
+  conflict.classList.add('hidden');
+
+  const link = document.createElement('a');
+  link.className = 'btn btn--link';
+  link.href = `/onboarding.html?child=${encodeURIComponent(child.id)}`;
+  link.textContent = `Change what Pip knows about ${child.first_name}`;
+  link.addEventListener('click', grantHandoff);
+  conflict.after(link);
 }
 
 function renumber() {

@@ -31,6 +31,7 @@ const connectingLine = document.querySelector('#connecting');
 const announce = document.querySelector('#announce');
 const endButton = document.querySelector('#end');
 const retryButton = document.querySelector('#retry');
+const noticeDetail = document.querySelector('#notice-detail');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -39,8 +40,9 @@ let blob = null;
 let session = null;
 const transcript = [];
 
-function fail(message, { offerRetry = false } = {}) {
+function fail(message, { offerRetry = false, detail = '' } = {}) {
   notice.textContent = message;
+  noticeDetail.textContent = detail;
   retryButton.classList.toggle('hidden', !offerRetry);
 }
 
@@ -113,7 +115,10 @@ function setConversationState(state) {
     stageLive.classList.add('hidden');
     blob?.stop();
     blob = null;
-    fail(microphoneProblem(error), { offerRetry: true });
+    fail(await microphoneProblem(error), {
+      offerRetry: true,
+      detail: await microphoneDetail(error),
+    });
     return;
   }
 
@@ -153,15 +158,56 @@ async function askForMicrophone() {
   for (const track of stream.getTracks()) track.stop();
 }
 
-/** Each of these is a different thing for a parent to do about it. */
-function microphoneProblem(error) {
+/**
+ * What the browser has already decided about the microphone for this site.
+ *
+ * 'denied' means the site itself is blocked, which is the one state a parent
+ * can fix from the address bar. Anything else means the refusal came from
+ * further out. Not every browser answers this query, so 'unknown' is a real
+ * third answer rather than a failure.
+ */
+async function sitePermission() {
+  try {
+    const status = await navigator.permissions.query({ name: 'microphone' });
+    return status.state;
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Each of these is a different thing for a parent to do about it.
+ *
+ * NotAllowedError is two unrelated problems wearing one name, and the fix is
+ * in a different place for each: the browser has blocked this site, or the
+ * phone has never given the browser the microphone at all. Telling a parent to
+ * tap the address bar when the block is at the operating system level sends
+ * them looking for a setting that is not there.
+ */
+async function microphoneProblem(error) {
   switch (error?.name) {
     case 'NotAllowedError':
-    case 'SecurityError':
+    case 'SecurityError': {
+      const state = await sitePermission();
+      if (state === 'denied') {
+        return (
+          'Your browser has blocked the microphone for this site. Tap the ' +
+          'icon just left of the web address, open Permissions, and set ' +
+          'Microphone to Allow. Then try again.'
+        );
+      }
+      if (state === 'prompt' || state === 'granted') {
+        return (
+          'The microphone was refused before your browser could ask for it. ' +
+          'Check that the browser itself is allowed to use it: on Android, ' +
+          'Settings, then Apps, then Chrome, then Permissions, then Microphone.'
+        );
+      }
       return (
-        'Pip needs the microphone. Tap the icon at the left of the address ' +
-        'bar, allow the microphone for this site, then try again.'
+        'Pip needs the microphone. Allow it for this site in your browser, ' +
+        'and check that your phone has given the browser microphone access.'
       );
+    }
     case 'NotFoundError':
     case 'OverconstrainedError':
       return 'No microphone was found on this device.';
@@ -176,6 +222,11 @@ function microphoneProblem(error) {
     default:
       return `The microphone could not be opened (${error?.name ?? 'unknown error'}).`;
   }
+}
+
+/** The quiet line underneath, so a report can say what actually happened. */
+async function microphoneDetail(error) {
+  return `${error?.name ?? 'unknown'} \u00b7 site permission: ${await sitePermission()}`;
 }
 
 /** The blob, running, before anything can go wrong. */
@@ -243,7 +294,10 @@ async function startSession() {
     blob?.stop();
     blob = null;
     stageLive.classList.add('hidden');
-    fail(friendlyStartError(error), { offerRetry: isMicrophoneError(error) });
+    fail(await friendlyStartError(error), {
+      offerRetry: isMicrophoneError(error),
+      detail: isMicrophoneError(error) ? await microphoneDetail(error) : '',
+    });
   }
 }
 
@@ -271,7 +325,7 @@ function isMicrophoneError(error) {
   return MICROPHONE_ERRORS.includes(error?.name);
 }
 
-function friendlyStartError(error) {
+async function friendlyStartError(error) {
   if (isMicrophoneError(error)) return microphoneProblem(error);
   return error?.message ?? 'Pip could not start. Please try again.';
 }

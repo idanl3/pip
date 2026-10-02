@@ -155,12 +155,33 @@ test('the saved profile comes back intact when reopened', async ({ page }) => {
   await expect(reopened.locator('.js-name')).toHaveValue('Dalet');
   await expect(reopened.locator('.js-age')).toHaveValue('8');
 
+  // The description is not on this screen any more - it is one deliberate tap
+  // further in, on that child's own page - but the values are still loaded and
+  // still exact, because saving this form writes every child and a field that
+  // had been emptied would erase what the parent wrote.
+  await expect(reopened.locator('.js-personality-other')).toBeHidden();
+  await expect(page.locator('body')).not.toContainText('Loves drawing');
+
   // The chip is ticked again, intact, and the typed words are back in the box
   // rather than merged into the chips.
   await expect(
     reopened.locator('.js-personality-chips input:checked'),
   ).toHaveValue(commaTrait);
   await expect(reopened.locator('.js-personality-other')).toHaveValue('Loves drawing');
+
+  // Saving without touching anything must leave the description exactly as it
+  // was. This is the failure the hidden fields exist to prevent.
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  const [row] = await sql(`
+    select c.personality
+      from public.children c
+      join public.families f on f.id = c.family_id
+      join auth.users u on u.id = f.owner_id
+     where u.email = '${email}'
+  `);
+  expect(row.personality).toBe(`${commaTrait}; Loves drawing`);
 
   expect(errors).toEqual([]);
 });
@@ -265,8 +286,10 @@ test("a parent can change one child without touching the others", async ({ page 
   await expect(page.locator('#extra-care')).toBeHidden();
   await expect(page.locator('#add-child')).toBeHidden();
 
-  // Their own answers came back.
+  // Their own answers came back, and here they are visible: this page is one
+  // child, opened on purpose.
   const block = page.locator('#children > .child').nth(0);
+  await expect(block.locator('.js-personality-other')).toBeVisible();
   await expect(block.locator('.js-personality-other')).toHaveValue('Collects stones');
 
   await block.locator('.js-age').fill('7');

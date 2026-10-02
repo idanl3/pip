@@ -667,3 +667,52 @@ Three related fixes went with it:
 asserts both properties: nothing wider than the screen, nothing tappable under
 44px. It is the only test in the suite that runs at a phone viewport, and the
 bugs it found had been live for four phases.
+
+
+## 29. Decision 27 did not fix it, and the wording there was too confident
+
+Asking for the microphone inside the tap is right and stays. It did **not**
+fix the owner's phone: the same refusal came back, with no prompt, on a build
+where the request happens within milliseconds of the tap. So lost user
+activation was a plausible cause, not a demonstrated one, and decision 27
+should have said so.
+
+What a refusal with no prompt actually means on Android is one of two
+unrelated things wearing a single error name:
+
+- the browser has blocked the microphone **for this site**, which a parent
+  fixes from the icon beside the web address; or
+- the phone has never given **the browser** the microphone, which a parent
+  fixes in Android's own app settings.
+
+Telling someone to tap the address bar when the block is at the operating
+system level sends them looking for a setting that is not there. So
+`microphoneProblem` now asks `navigator.permissions.query({name:'microphone'})`
+and branches: `denied` means the site is blocked, anything else means the
+refusal came from further out, and browsers that do not answer the query get
+wording that covers both.
+
+Underneath the message there is now a small grey line reading, for example,
+`NotAllowedError · site permission: denied`. A pilot of five families is
+debugged by those families over text message, and "it didn't work" is not a
+bug report.
+
+
+## 30. The family's answers stop showing the children's descriptions
+
+The whole-family form showed, on one screen, every child's temperament and
+what each of them does in a fight. It is behind the PIN, and that is still not
+enough: reading "cries and finds it hard to stop" about yourself over a
+parent's shoulder is not something a seven-year-old should be able to do by
+picking up the tablet.
+
+First run still shows them, because that is where a parent writes them. After
+that the fields fold away behind a link per child - "Change what Pip knows
+about Mai" - which opens that one child's page. One child, on purpose, one tap
+further in.
+
+The fields are hidden rather than removed, still holding the values they were
+loaded with. Saving this form writes every child, so a field that had been
+emptied would quietly erase what the parent wrote. A test now saves the
+reopened form without touching anything and asserts the description in the
+database is byte-identical.
