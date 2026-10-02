@@ -34,12 +34,13 @@ import {
  * First run, with no family yet: everything, because this is where a profile
  * gets written.
  *
- * ?child=<id>, or ?child=new: one child, and nothing about the household. A
- * child's temperament and what they do in a fight is the most sensitive thing
- * here - reading "cries and finds it hard to stop" about yourself over a
- * parent's shoulder is not something a seven-year-old should be able to do by
- * picking up the tablet - so it is never on screen beside anything else, and
- * never for a child you did not deliberately open.
+ * ?child=<id>, or ?child=new: one child, and nothing about the household.
+ * Their name and age are filled in - the portal shows those already, and you
+ * need them to know whose page you are on - but what was written about them is
+ * not. Those two boxes start empty like every other, and for the same reason:
+ * "cries and finds it hard to stop" is not a sentence a seven-year-old should
+ * be able to read about themselves over a parent's shoulder, and the surest
+ * way to stop that is for no screen to display it at all.
  *
  * An existing family, with no child named: the household questions only, and
  * every box empty. The children are not here at all; they live in the parents'
@@ -230,7 +231,9 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
 
     hide('.js-household');
     document.querySelector('#lede').textContent = child
-      ? 'Change whatever needs changing. Nothing about your other children is touched.'
+      ? 'What you wrote about them is not shown here. Leave a box empty and it ' +
+        'stays as it is; write in one and it replaces what is there. Nothing ' +
+        'about your other children is touched.'
       : 'Just this child. Nothing about the rest of your family is touched.';
     document.querySelector('#form-title').textContent = child
       ? `About ${child.first_name}`
@@ -238,7 +241,12 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
     document.title = `${document.querySelector('#form-title').textContent} — Pip`;
     submit.textContent = 'Save';
 
-    const block = addChild(child ?? undefined);
+    // Name and age only. Deliberately not the description: a parent rewrites
+    // what Pip knows rather than editing what they can read, and an empty box
+    // leaves what is stored alone.
+    const block = addChild(
+      child ? { id: child.id, first_name: child.first_name, age: child.age } : undefined,
+    );
     // Removing belongs in the portal, beside the other children, where the
     // consequence is in front of you.
     block.querySelector('.js-remove').classList.add('hidden');

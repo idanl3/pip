@@ -869,3 +869,33 @@ Two pieces of dead code went with this. `hideDescription` became unreachable -
 it folded a saved child's description away on the whole-family form, and that
 form no longer renders children at all - and `loadChildren` was left imported
 and unused. Both removed rather than left to confuse the next session.
+
+
+## 35. No screen shows what a parent wrote about a child. None.
+
+The child's own page still displayed it all, prefilled, and had a test
+asserting that it did. The owner had said twice that it should not - "as it is
+now that you don't see the original stuff", then "just like the children
+profile they can update it without seeing what was there originally" - and
+both times it was read as describing the whole-family form. It was not.
+
+So the rule is now absolute and easy to state: **nothing in the parent area
+ever displays a child's personality or what they do in a fight.** Not the
+launch screen, not the portal, not the family form, and not the child's own
+page. They are written once at signup and after that they can only be
+replaced, never read back.
+
+That is a stronger guarantee than hiding them, and it is stronger for a reason
+worth keeping: a hidden field is one CSS class away from being visible, and the
+thing being defended against is a seven-year-old reading "cries and finds it
+hard to stop" about themselves over a parent's shoulder. A value that is never
+sent to a screen cannot be revealed by a layout change.
+
+Name and age are still filled in. They are not what a parent wrote about a
+child - the portal lists them beside every name already - and without them
+there is no way to tell whose page you are on.
+
+`saveChild` consequently writes name and age always, and each description only
+when something was actually typed. Unconditional writes would have wiped
+everything Pip knows about a child the first time anyone opened the page to
+correct an age.

@@ -331,12 +331,19 @@ test("a parent can change one child without touching the others", async ({ page 
   await expect(page.locator('#extra-care')).toBeHidden();
   await expect(page.locator('#add-child')).toBeHidden();
 
-  // Their own answers came back, and here they are visible: this page is one
-  // child, opened on purpose.
+  // Name and age came back, because the portal shows those anyway and you
+  // need them to know whose page this is.
   const block = page.locator('#children > .child').nth(0);
-  await expect(block.locator('.js-personality-other')).toBeVisible();
-  await expect(block.locator('.js-personality-other')).toHaveValue('Collects stones');
+  await expect(block.locator('.js-name')).toHaveValue('Tet');
+  await expect(block.locator('.js-age')).toHaveValue('6');
 
+  // What was written about them did not. No screen displays it, which is the
+  // only reliable way to stop a child reading it over a shoulder.
+  await expect(block.locator('.js-personality-other')).toHaveValue('');
+  await expect(block.locator('.js-personality-chips input:checked')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('Collects stones');
+
+  // Correcting the age must not erase the description that was never shown.
   await block.locator('.js-age').fill('7');
   await page.click('#submit');
   await page.waitForURL('**/parents.html');
@@ -355,7 +362,8 @@ test("a parent can change one child without touching the others", async ({ page 
     ['Chet', 9],
     ['Tet', 7],
   ]);
-  // The other child was not rewritten, and this one kept what was not edited.
+  // The other child was not rewritten, and this one kept the description that
+  // the form never showed and never asked about.
   expect(rows[1].personality).toBe('Collects stones');
   // Any change to a child means a fresh look.
   expect(rows[0].status).toBe('pending');

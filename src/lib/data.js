@@ -151,21 +151,25 @@ export async function loadChild(childId) {
  * one number, and it put all three children's descriptions on screen to
  * change one child's.
  *
+ * The name and age are always written, because the form shows them and a
+ * parent can see what they are changing. The two description fields are only
+ * written when something was actually typed: they are shown empty on purpose,
+ * so an empty one means "leave this as it is" rather than "erase it". Writing
+ * them unconditionally would wipe everything Pip knows about a child the first
+ * time somebody opened the page to correct an age.
+ *
  * A database trigger sends the family back for review when any child row
  * changes, so this needs no help to do that - and should not try, because the
  * families guard trigger rejects a parent setting their own status.
  */
 export async function saveChild(childId, fields) {
-  const { error } = await supabase
-    .from('children')
-    .update({
-      first_name: fields.first_name,
-      age: fields.age,
-      personality: fields.personality || null,
-      conflict_tendency: fields.conflict_tendency || null,
-    })
-    .eq('id', childId);
+  const patch = { first_name: fields.first_name, age: fields.age };
+  if (fields.personality?.trim()) patch.personality = fields.personality.trim();
+  if (fields.conflict_tendency?.trim()) {
+    patch.conflict_tendency = fields.conflict_tendency.trim();
+  }
 
+  const { error } = await supabase.from('children').update(patch).eq('id', childId);
   if (error) throw error;
 }
 
