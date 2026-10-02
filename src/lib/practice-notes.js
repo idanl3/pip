@@ -86,6 +86,17 @@ How to write it:
 - One line per child, then any family-level lines that matter.
 - Four to six lines in total. This sits inside a long prompt and has to earn
   its space.
+- Keep each line to about 40 words and never more than 50. The examples below
+  run from 30 to 48 words. If a line is longer than that, you are explaining
+  rather than instructing.
+- Do not restate the profile. It sits directly above this section and Pip has
+  already read it. One short clause to anchor who the line is about is enough,
+  as in "Mai is young and shy"; everything after it should be something to do.
+- Two or three instructions per child, the ones that matter most. If you have a
+  fourth, drop the weakest rather than making the line longer.
+- Name the other children and the parents where it sharpens an instruction.
+  "when Nina talks over her" is more use than "when another child talks over
+  her", because Pip knows who Nina is.
 - Plain ASCII only. No em dashes, no curly quotes, no accented characters.
 - No diagnosis, no labels, no clinical language. Describe what to do, never
   what the child is.
