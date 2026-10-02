@@ -71,15 +71,17 @@ retryButton.addEventListener('click', () => {
     location.reload();
     return;
   }
-  continueAfterMicrophone(navigator.mediaDevices.getUserMedia({ audio: true }));
+  const started = performance.now();
+  continueAfterMicrophone(navigator.mediaDevices.getUserMedia({ audio: true }), started);
 });
 
-async function continueAfterMicrophone(asking) {
+async function continueAfterMicrophone(asking, started) {
   retryButton.disabled = true;
   try {
     const stream = await asking;
     for (const track of stream.getTracks()) track.stop();
   } catch (error) {
+    error.pipElapsedMs = Math.round(performance.now() - started);
     retryButton.disabled = false;
     fail(await microphoneProblem(error), {
       offerRetry: true,
@@ -249,10 +251,17 @@ async function microphoneProblem(error) {
         );
       }
       if (state === 'prompt' || state === 'granted') {
+        // This site has never been blocked - the browser would say 'denied'.
+        // So the refusal was made before this page was involved at all, and
+        // every place worth looking is outside the browser tab. Listed
+        // device-first, because a phone-wide microphone switch refuses
+        // everything and is the easiest of the three to have left off.
         return (
-          'The microphone was refused before your browser could ask for it. ' +
-          'Check that the browser itself is allowed to use it: on Android, ' +
-          'Settings, then Apps, then Chrome, then Permissions, then Microphone.'
+          'Your phone or browser is blocking the microphone before this site ' +
+          'is ever asked. Three places to look: the phone\u2019s own microphone ' +
+          'switch in Settings under Privacy; the browser\u2019s microphone ' +
+          'permission in Settings under Apps; and Site settings inside the ' +
+          'browser, where Microphone should be set to ask.'
         );
       }
       return (
@@ -276,6 +285,22 @@ async function microphoneProblem(error) {
   }
 }
 
+/**
+ * How many microphones the browser admits to having.
+ *
+ * Zero is meaningful. A device-wide microphone switch - Android's privacy
+ * toggle, or a laptop's hardware mute - takes the input away from the browser
+ * entirely rather than refusing a site, and this is the only place that shows.
+ */
+async function audioInputCount() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((device) => device.kind === 'audioinput').length;
+  } catch {
+    return '?';
+  }
+}
+
 /** The quiet line underneath, so a report can say what actually happened. */
 async function microphoneDetail(error) {
   // How long the browser took to refuse. A prompt a person actually saw and
@@ -283,7 +308,9 @@ async function microphoneDetail(error) {
   // milliseconds. It is the one measurement that separates "they said no" from
   // "they were never asked".
   const took = error?.pipElapsedMs === undefined ? '' : ` \u00b7 ${error.pipElapsedMs}ms`;
-  return `${error?.name ?? 'unknown'} \u00b7 site permission: ${await sitePermission()}${took}`;
+  const state = await sitePermission();
+  const inputs = await audioInputCount();
+  return `${error?.name ?? 'unknown'} \u00b7 site: ${state} \u00b7 inputs: ${inputs}${took}`;
 }
 
 /** The blob, running, before anything can go wrong. */

@@ -716,3 +716,30 @@ loaded with. Saving this form writes every child, so a field that had been
 emptied would quietly erase what the parent wrote. A test now saves the
 reopened form without touching anything and asserts the description in the
 database is byte-identical.
+
+
+## 31. The microphone refusal is not ours, and the experiment that settled it
+
+A button whose click handler calls `getUserMedia` as its first statement - no
+await, no network, no work of any kind in front of it - is still refused on the
+owner's phone with `NotAllowedError` and no prompt. The site permission reads
+`prompt`, not `denied`, so this site has never been blocked either.
+
+That is conclusive in a way reasoning was not. If a page that asks for nothing
+but the microphone, immediately, from inside a tap, cannot produce a prompt,
+then no arrangement of this page's code can. The refusal is made before the
+page is involved: a device-wide microphone switch, the browser's own operating
+system permission, or the browser's global site default. All three are outside
+the tab and none of them can be fixed from here.
+
+So decision 27's change stays - asking inside the tap is still correct, and
+costs nothing - but it was never the cause. Two theories, both plausible, both
+wrong, is what it costs to debug a device you do not have. The experiment took
+one tap and should have come before either of them.
+
+What the page does now is say so accurately and hand over a usable report. The
+grey line carries four facts: the error name, the site permission state, how
+many audio inputs the browser can see, and how long the refusal took. Zero
+inputs would mean a device-wide switch has taken the microphone away from the
+browser entirely, which is the only one of the three causes that leaves a trace
+a web page can read.
