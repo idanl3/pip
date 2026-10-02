@@ -58,16 +58,18 @@ export async function loadChildren(familyId) {
 /**
  * Saves the whole profile: the family row and its children together.
  *
- * Children are replaced rather than merged. The alternative is tracking which
- * rows were edited, removed or added across a form where a parent can delete
- * the middle child and reorder the rest, and getting that subtly wrong would
- * mean a child's details attached to the wrong name. At three children per
- * family, replacing is both simpler and safer.
+ * Children are reconciled by id - updated, inserted, or removed - rather than
+ * deleted and rewritten. Replacing them was simpler and was wrong for two
+ * reasons. A child's row id changed on every save, so nothing could ever link
+ * to one child; and a failure between the delete and the insert left a family
+ * with no children at all, which is the one state that cannot be recovered
+ * from the form.
  *
- * This is not a transaction. If the children insert fails after the family row
- * is written, the profile is left with the new answers and no children, and
- * the form will say so rather than pretend it saved. A proper transaction
- * needs a database function, which is worth doing if this ever grows.
+ * This is still not a transaction. If one child's update fails the earlier
+ * ones have already been written, and the form says so rather than pretending
+ * it saved. Partial now means some children updated, which is recoverable by
+ * pressing save again. A proper transaction needs a database function, which
+ * is worth doing if this ever grows.
  */
 export async function saveProfile(profile, children) {
   const existing = await loadFamily();
@@ -92,27 +94,79 @@ export async function saveProfile(profile, children) {
     family = data;
   }
 
-  const { error: clearError } = await supabase
-    .from('children')
-    .delete()
-    .eq('family_id', family.id);
-  if (clearError) throw clearError;
+  const before = await loadChildren(family.id);
+  const kept = new Set();
 
-  const rows = children.map((child, index) => ({
-    family_id: family.id,
-    first_name: child.first_name,
-    age: child.age,
-    personality: child.personality || null,
-    conflict_tendency: child.conflict_tendency || null,
-    sort_order: index,
-  }));
+  for (const [index, child] of children.entries()) {
+    const fields = {
+      first_name: child.first_name,
+      age: child.age,
+      personality: child.personality || null,
+      conflict_tendency: child.conflict_tendency || null,
+      sort_order: index,
+    };
 
-  if (rows.length) {
-    const { error } = await supabase.from('children').insert(rows);
+    if (child.id) {
+      kept.add(child.id);
+      const { error } = await supabase
+        .from('children')
+        .update(fields)
+        .eq('id', child.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('children')
+        .insert({ family_id: family.id, ...fields });
+      if (error) throw error;
+    }
+  }
+
+  const gone = before.filter((row) => !kept.has(row.id)).map((row) => row.id);
+  if (gone.length) {
+    const { error } = await supabase.from('children').delete().in('id', gone);
     if (error) throw error;
   }
 
   return family;
+}
+
+
+/** One child, for the form that fixes a single child's answers. */
+export async function loadChild(childId) {
+  const { data, error } = await supabase
+    .from('children')
+    .select('*')
+    .eq('id', childId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Updates one child and nothing else.
+ *
+ * Correcting an age used to mean reopening the whole form and writing every
+ * answer about every child back over itself. That is a lot of writing to fix
+ * one number, and it put all three children's descriptions on screen to
+ * change one child's.
+ *
+ * A database trigger sends the family back for review when any child row
+ * changes, so this needs no help to do that - and should not try, because the
+ * families guard trigger rejects a parent setting their own status.
+ */
+export async function saveChild(childId, fields) {
+  const { error } = await supabase
+    .from('children')
+    .update({
+      first_name: fields.first_name,
+      age: fields.age,
+      personality: fields.personality || null,
+      conflict_tendency: fields.conflict_tendency || null,
+    })
+    .eq('id', childId);
+
+  if (error) throw error;
 }
 
 /** Human wording for a family's status, for the parent's own screen. */

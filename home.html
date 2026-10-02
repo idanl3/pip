@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#fff6ec" />
     <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
@@ -11,51 +11,40 @@
     <link rel="stylesheet" href="./src/styles/app.css" />
   </head>
   <body>
-    <!-- Deliberately bare.
-         This screen showed the whole family profile, including each child's
-         personality and what they do in a fight. It is also the screen a
-         parent opens with children in the room, and "cries and finds it hard
-         to stop" is not something a child should read about themselves over a
-         shoulder. The profile moved behind the PIN. What is left is the one
-         thing this screen is for: starting Pip. -->
-    <div class="page page--narrow">
-      <header class="page__header">
-        <div class="page__mark" aria-hidden="true"></div>
-        <h1 class="page__title">Pip</h1>
-      </header>
-
-      <div id="notice" class="notice notice--error" role="alert"></div>
-
-      <div id="status" class="notice notice--info">
-        <strong id="status-title"></strong>
-        <p id="status-body" class="status__line"></p>
-        <p id="status-note" class="status__note"></p>
+    <!-- The launch screen, and almost nothing else.
+         It gets opened with a fight already under way, so there is one obvious
+         thing to do. Everything a parent might want to read or change lives
+         behind the word in the corner. -->
+    <div class="launch">
+      <div class="launch__top">
+        <div class="launch__brand">
+          <div class="page__mark" aria-hidden="true"></div>
+          <h1 class="page__title">Pip</h1>
+        </div>
+        <a class="launch__corner" href="/parents.html">Parents</a>
       </div>
 
-      <div id="start-card" class="card hidden">
-        <p class="card__title">Start a session</p>
-        <p class="muted">
-          Pip will ask who is there and take it from the top. Stay nearby — Pip
-          is your helper, not a babysitter.
-        </p>
-        <a class="btn btn--block" href="/pip.html">Open Pip</a>
-        <p class="muted status__note" id="minutes"></p>
+      <div class="launch__middle">
+        <div id="notice" class="notice notice--error" role="alert"></div>
+
+        <!-- Approved: the button, and nothing competing with it. -->
+        <div id="ready" class="launch__ready hidden">
+          <a class="launch__start" href="/pip.html">Start</a>
+          <p class="launch__hint">
+            Pip will ask who is there. Stay nearby — Pip is your helper, not a
+            babysitter.
+          </p>
+        </div>
+
+        <!-- Not approved yet, or paused. -->
+        <div id="waiting" class="launch__waiting hidden">
+          <p class="launch__waiting-title" id="waiting-title"></p>
+          <p class="launch__hint" id="waiting-body"></p>
+          <p class="launch__hint" id="waiting-note"></p>
+        </div>
       </div>
 
-      <div class="actions">
-        <a class="btn btn--quiet" href="/onboarding.html">Your family's answers</a>
-        <a class="btn btn--quiet hidden" id="admin-link" href="/admin.html">Admin</a>
-        <button type="button" class="btn btn--link" id="sign-out">Sign out</button>
-      </div>
-
-      <h2>What Pip keeps</h2>
-      <p class="muted">
-        How many minutes you have used, and the answers you gave about your
-        family. No recordings, ever. What your children actually say is never
-        stored on our side — Pip's voice goes straight between this device and
-        the voice service, and the conversation is not written down anywhere we
-        can read.
-      </p>
+      <p class="launch__foot" id="minutes"></p>
     </div>
 
     <script type="module" src="./src/home.js"></script>

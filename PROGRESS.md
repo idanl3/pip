@@ -18,6 +18,13 @@ Three files carry the whole handover. Read all of them before doing anything:
 children, be approved, and hold a real voice session with Pip. Verified end to
 end against the live site, including a conversation with the live agent.
 
+The screens a family touches are four: `home.html` is the launch screen and is
+one big **Start** plus the word **Parents** in the corner; `parents.html` is
+the portal behind the PIN (status, minutes, children, PIN, admin, sign out);
+`onboarding.html` is the family's answers, and the same page opens one child
+alone as `?child=<id>`; `pip.html` is the kids' screen, PIN then Pip. Nothing
+about a child appears outside the PIN. See decisions 23 to 26.
+
 **Next: phase 5**, minute tracking — the ElevenLabs webhook, usage display and
 the scheduled job that also keeps the free-tier project awake.
 
@@ -45,7 +52,7 @@ the scheduled job that also keeps the free-tier project awake.
 | 1 | Project setup, Pages, domain | **Done** |
 | 2 | Accounts and onboarding | **Done.** Invite links, login, onboarding form, admin approval screen |
 | 3 | Agent templating | **Done.** Prompt templated and pushed, seven variables with defaults, `end_call` enabled, privacy fixed |
-| 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone |
+| 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone. Launch screen is one Start button; the parent area is a separate PIN-gated portal |
 | 5 | Minute tracking and limits | Not started |
 | 6 | Encryption and recaps | Not started |
 | 7 | Safety alert and polish | Not started. Hebrew review is out of scope for now |
@@ -294,6 +301,17 @@ Each of these cost time. Don't rediscover them.
   duplicate certificate requests.
 - **Don't pass a `sb_publishable_` key as `Authorization: Bearer`.** It isn't a
   JWT. It belongs in the `apikey` header; `Bearer` carries a user's session JWT.
+
+---
+
+**A hidden ancestor is not a hidden element, and `renumber()` will undo you.**
+One-child mode hides the family-wide questions by adding `hidden` to two
+wrapper divs, which is fine. It also needed `#add-child` hidden - and setting
+that before calling `addChild()` did nothing, because `renumber()` runs at the
+end of `addChild()` and toggles that same class back off whenever there are
+fewer children than the maximum. The toggle now knows about one-child mode.
+Anything that fights a function whose whole job is to recompute visibility
+will lose.
 
 ---
 

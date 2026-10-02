@@ -203,9 +203,40 @@ test('a family waiting for approval cannot reach the kids screen', async ({ page
   await page.click('#submit');
   await page.waitForURL('**/home.html');
 
-  await expect(page.locator('#start-card')).toBeHidden();
+  await expect(page.locator('#ready')).toBeHidden();
 
   // And typing the address directly gets them sent back.
   await page.goto('/pip.html');
   await page.waitForURL('**/home.html');
+});
+
+/**
+ * The kids' screen never accepts a handed-over unlock.
+ *
+ * The parent area passes one unlock between its own pages so a parent is not
+ * asked for the same PIN twice in five seconds. Starting a session must not
+ * benefit from that, for two independent reasons: the tablet is put down in a
+ * room with the children in it the moment a session ends, and the tap that
+ * accepts the PIN is the gesture the browser grants the microphone under.
+ *
+ * This reaches for the storage key directly, which is the only way to prove a
+ * token is ignored rather than merely never issued.
+ */
+test('a handed-over unlock does not open the kids screen', async ({ page }) => {
+  await approvedFamily(page);
+
+  // A PIN on this device, so the gate is in asking mode rather than setting.
+  await page.goto('/parents.html');
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#portal:not(.hidden)');
+
+  // The parent area would honour this. The kids' screen must not.
+  await page.evaluate(() => sessionStorage.setItem('pip.pin.handoff.v1', '1'));
+  await page.goto('/pip.html');
+
+  await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/parent pin/i);
+  await expect(page.locator('#stage-live')).toBeHidden();
 });

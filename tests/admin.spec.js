@@ -35,13 +35,13 @@ test.afterAll(cleanupTestData);
  * the point: the form describes each child's temperament, and a child should
  * not be able to read that about themselves by picking up the tablet.
  */
-async function passPinGate(page, pin = '481902') {
+async function passPinGate(page, { pin = '481902', reveal = '#form-area' } = {}) {
   await page.waitForSelector('#stage-pin [data-pin-submit]');
   for (const digit of pin) {
     await page.click(`#stage-pin button[data-key="${digit}"]`);
   }
   await page.click('#stage-pin [data-pin-submit]');
-  await page.waitForSelector('#form-area:not(.hidden)');
+  await page.waitForSelector(`${reveal}:not(.hidden)`);
 }
 
 async function join(page, code, email) {
@@ -69,8 +69,10 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
   await familyPage.click('#submit');
   await familyPage.waitForURL('**/home.html');
 
-  await expect(familyPage.locator('#status-title')).toHaveText(/waiting to be approved/i);
-  await expect(familyPage.locator('#start-card')).toBeHidden();
+  await expect(familyPage.locator('#waiting-title')).toHaveText(
+    /waiting for admin to approve you/i,
+  );
+  await expect(familyPage.locator('#ready')).toBeHidden();
 
   // --- the owner signs in ------------------------------------------------
   const adminEmail = testEmail();
@@ -99,7 +101,7 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
 
   // The family's own screen should now offer a session.
   await familyPage.reload();
-  await expect(familyPage.locator('#start-card')).toBeVisible();
+  await expect(familyPage.locator('#ready')).toBeVisible();
 
   // --- minute limit -------------------------------------------------------
   await card().locator('input[type="number"]').fill('45');
@@ -171,13 +173,19 @@ test('an owner who is also a family lands on their own home, not the admin scree
   await page.goto('/index.html');
   await page.waitForURL('**/home.html');
 
-  // A session they can start. The home screen deliberately no longer prints
-  // the children's profiles: it is opened with them in the room.
-  await expect(page.locator('#start-card')).toBeVisible();
+  // A session they can start, and nothing competing with it. The launch
+  // screen deliberately no longer prints the children's profiles: it is
+  // opened with them in the room.
+  await expect(page.locator('#ready')).toBeVisible();
   await expect(page.locator('#minutes')).toContainText(/minutes left this month/i);
   await expect(page.locator('body')).not.toContainText('Vav');
 
-  // The admin area is reachable, but as a link rather than a destination.
+  // The admin area is reachable through the parents' portal, which is behind
+  // the PIN like everything else a parent might want.
+  await page.getByRole('link', { name: 'Parents' }).click();
+  await page.waitForURL('**/parents.html');
+  await passPinGate(page, { reveal: '#portal' });
+
   const adminLink = page.locator('#admin-link');
   await expect(adminLink).toBeVisible();
   await adminLink.click();
@@ -203,6 +211,10 @@ test('a parent who is not an admin never sees the admin link', async ({ browser 
   await page.click('#submit');
   await page.waitForURL('**/home.html');
 
+  // Nothing on the launch screen, and nothing in the portal either.
+  await expect(page.locator('#admin-link')).toBeHidden();
+  await page.goto('/parents.html');
+  await passPinGate(page, { reveal: '#portal' });
   await expect(page.locator('#admin-link')).toBeHidden();
 });
 

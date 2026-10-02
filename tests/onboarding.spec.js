@@ -83,7 +83,9 @@ test('a family joins by invitation and submits a profile', async ({ page }) => {
   await page.click('#submit');
   await page.waitForURL('**/home.html');
 
-  await expect(page.locator('#status-title')).toHaveText(/waiting to be approved/i);
+  await expect(page.locator('#waiting-title')).toHaveText(
+    /waiting for admin to approve you/i,
+  );
 
   // And no child's name appears on this screen at all, which is the point of
   // moving the profile behind the PIN.
@@ -92,7 +94,7 @@ test('a family joins by invitation and submits a profile', async ({ page }) => {
   }
 
   // Nothing may be startable before approval.
-  await expect(page.locator('#start-card')).toBeHidden();
+  await expect(page.locator('#ready')).toBeHidden();
 
   // And the database should agree with the screen.
   const rows = await sql(`
@@ -195,4 +197,100 @@ test('an invitation code only works once', async ({ page }) => {
 
   await expect(page.locator('#notice')).toContainText(/did not work/i);
   await expect(page.locator('#code-field')).toBeVisible();
+});
+
+/**
+ * Fixing one child's answers without touching the others.
+ *
+ * Correcting an age used to mean reopening the whole form: every child's
+ * description on screen to change one number, and every answer written back
+ * over itself. This proves the narrow path - one child in, one child written,
+ * the others untouched - and that the family still goes back for review.
+ */
+test("a parent can change one child without touching the others", async ({ page }) => {
+  const errors = watchForErrors(page);
+  const email = testEmail();
+
+  await page.goto(`/join.html?code=${await createInvite()}`);
+  await page.fill('#email', email);
+  await page.fill('#password', TEST_PASSWORD);
+  await page.click('#submit');
+  await page.waitForURL('**/onboarding.html');
+
+  const children = page.locator('#children > .child');
+  await children.nth(0).locator('.js-name').fill('Chet');
+  await children.nth(0).locator('.js-age').fill('9');
+  await children.nth(1).locator('.js-name').fill('Tet');
+  await children.nth(1).locator('.js-age').fill('6');
+  await children.nth(1).locator('.js-personality-other').fill('Collects stones');
+  await page.locator('#parent-chips .chip', { hasText: 'Mum' }).click();
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  // Approved, so that the edit has a status to knock back down.
+  await sql(`
+    update public.families set status = 'approved'
+     where owner_id = (select id from auth.users where email = '${email}')
+  `);
+
+  // --- into the portal ----------------------------------------------------
+  // The launch screen carries one button and a word in the corner.
+  await page.reload();
+  await expect(page.locator('#ready')).toBeVisible();
+  await page.getByRole('link', { name: 'Parents' }).click();
+  await page.waitForURL('**/parents.html');
+
+  // No PIN on this device yet, so the gate offers to choose one.
+  await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#portal:not(.hidden)');
+
+  // Names and ages, and nothing a child should not read over a shoulder.
+  const row = page.locator('.kid-row', { hasText: 'Tet' });
+  await expect(row).toContainText('6');
+  await expect(page.locator('#kids')).not.toContainText('Collects stones');
+
+  // --- one child ----------------------------------------------------------
+  await row.getByRole('link', { name: 'Change' }).click();
+  await page.waitForURL(/onboarding\.html\?child=/);
+  await page.waitForSelector('#form-area:not(.hidden)');
+
+  // Only that child, and none of the family-wide questions.
+  await expect(page.locator('#children > .child')).toHaveCount(1);
+  await expect(page.locator('#form-title')).toHaveText('About Tet');
+  await expect(page.locator('#parent-chips')).toBeHidden();
+  await expect(page.locator('#extra-care')).toBeHidden();
+  await expect(page.locator('#add-child')).toBeHidden();
+
+  // Their own answers came back.
+  const block = page.locator('#children > .child').nth(0);
+  await expect(block.locator('.js-personality-other')).toHaveValue('Collects stones');
+
+  await block.locator('.js-age').fill('7');
+  await page.click('#submit');
+  await page.waitForURL('**/parents.html');
+
+  // --- what the database says --------------------------------------------
+  const rows = await sql(`
+    select c.first_name, c.age, c.personality, f.status
+      from public.children c
+      join public.families f on f.id = c.family_id
+      join auth.users u on u.id = f.owner_id
+     where u.email = '${email}'
+     order by c.sort_order
+  `);
+
+  expect(rows.map((r) => [r.first_name, r.age])).toEqual([
+    ['Chet', 9],
+    ['Tet', 7],
+  ]);
+  // The other child was not rewritten, and this one kept what was not edited.
+  expect(rows[1].personality).toBe('Collects stones');
+  // Any change to a child means a fresh look.
+  expect(rows[0].status).toBe('pending');
+
+  expect(errors).toEqual([]);
 });

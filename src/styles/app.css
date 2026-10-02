@@ -410,3 +410,146 @@ textarea[aria-invalid='true'] {
   background: var(--pip-cream);
   overflow-y: auto;
 }
+
+/* --- The launch screen --------------------------------------------------
+   One obvious thing to do. This is opened with a fight already happening, so
+   it is a big target and almost nothing else. The way into the parent's own
+   settings is a word in the corner: quiet enough that a child scanning the
+   screen passes over it, and clear enough that an adult does not have to
+   wonder. A gear icon would be the wrong way round on both counts - ambiguous
+   to the adult and interesting to the child. */
+
+.launch {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2rem;
+}
+
+.launch__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.launch__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.launch__corner {
+  font-size: 0.9375rem;
+  color: var(--pip-plum-soft);
+  text-decoration: none;
+  padding: 0.5rem 0.8rem;
+  border: 1.5px solid #ecdccb;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.launch__corner:hover {
+  border-color: var(--pip-coral);
+  color: var(--pip-plum);
+}
+
+.launch__middle {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.launch__ready {
+  display: grid;
+  place-items: center;
+  gap: 1.25rem;
+}
+
+/* Deliberately large. A parent reaches for this one-handed, often while
+   holding a crying child with the other arm. */
+.launch__start {
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-decoration: none;
+  display: grid;
+  place-items: center;
+  width: min(15rem, 62vw);
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--pip-apricot), var(--pip-coral) 72%);
+  box-shadow: 0 1rem 2.5rem rgb(255 138 107 / 0.35);
+  cursor: pointer;
+}
+
+.launch__start:hover {
+  filter: brightness(1.04);
+}
+
+.launch__hint {
+  margin: 0;
+  max-width: 22rem;
+  color: var(--pip-plum-soft);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* Shown instead of the button when a family is not approved yet. */
+.launch__waiting {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 2rem 1.25rem;
+}
+
+.launch__waiting-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.launch__foot {
+  text-align: center;
+  color: var(--pip-plum-soft);
+  font-size: 0.875rem;
+}
+
+/* --- the parents' portal ------------------------------------------------ */
+
+.kid-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #f3e6d8;
+}
+
+.kid-row:last-child {
+  border-bottom: none;
+}
+
+.kid-row__name {
+  font-weight: 700;
+}
+
+.kid-row__age {
+  color: var(--pip-plum-soft);
+  font-weight: 400;
+}
+
+/* A column of plain choices, for the bottom of the portal. */
+.stack {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}

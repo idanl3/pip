@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#fff6ec" />
+    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+    <title>Parents — Pip</title>
+    <link rel="stylesheet" href="./src/styles/base.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+    <link rel="stylesheet" href="./src/styles/pip.css" />
+  </head>
+  <body>
+    <!-- Behind the PIN, always. Everything a parent might want is here, so
+         that the launch screen can be one button. -->
+    <section id="stage-pin" class="gate hidden"></section>
+
+    <div class="page page--narrow hidden" id="portal">
+      <header class="page__header">
+        <div class="page__mark" aria-hidden="true"></div>
+        <h1 class="page__title">Parents</h1>
+      </header>
+
+      <div id="notice" class="notice notice--error" role="alert"></div>
+
+      <!-- Where this family stands -->
+      <div class="card">
+        <p class="card__title" id="status-title"></p>
+        <p class="muted muted--flush" id="status-body"></p>
+        <p class="status__note hidden" id="review-note"></p>
+      </div>
+
+      <!-- Minutes -->
+      <div class="card">
+        <p class="card__title">This month</p>
+        <p class="status__line" id="minutes"></p>
+        <p class="muted muted--flush">
+          Minutes reset on the first. Idan sets the limit.
+        </p>
+      </div>
+
+      <!-- The children, names only. Their descriptions are one tap further
+           in, and only for the child being changed. -->
+      <div class="card">
+        <p class="card__title">Your children</p>
+        <div id="kids"></div>
+        <p class="muted muted--spaced">
+          Opening a child shows what you wrote about them, so pick your moment.
+        </p>
+      </div>
+
+      <div class="card">
+        <p class="card__title">Everything else</p>
+        <div class="stack">
+          <a class="btn btn--link" href="/onboarding.html">
+            Your family's answers
+          </a>
+          <button type="button" class="btn btn--link" id="change-pin">
+            Change the PIN on this device
+          </button>
+          <a class="btn btn--link hidden" id="admin-link" href="/admin.html">
+            Admin
+          </a>
+          <button type="button" class="btn btn--link" id="sign-out">
+            Sign out
+          </button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="/home.html">Back</a>
+      </div>
+    </div>
+
+    <script type="module" src="./src/parents.js"></script>
+  </body>
+</html>

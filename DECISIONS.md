@@ -517,3 +517,83 @@ chooses whose turn it is, as it always did.
 appears to force a change in behaviour, say so and ask. Do not resolve it
 quietly. The constraint was worth raising; the solution was the owner's to
 pick, and theirs was better than mine.
+
+
+## 23. The launch screen is one button, and everything else is behind the PIN
+
+The home screen used to be a card with a status line, the family's answers,
+a start control and a row of links. Opened in the middle of a fight, with the
+two children standing next to the parent, it printed each child's name, age,
+personality and what they do when a fight starts.
+
+So it is now one large round **Start**, a hint, minutes left in the footer, and
+the word **Parents** in the corner. Nothing else.
+
+**Parents** leads to a portal that is behind the PIN without exception: where
+the family stands, minutes used, the children, the PIN itself, the admin link
+for the owner, signing out. The children are listed by first name and age only.
+Their descriptions appear one tap further in, on the form for the single child
+being changed.
+
+Rejected: a gear icon in the corner. It is ambiguous to the adult who needs it
+and interesting to the child who does not, which is exactly backwards. A word
+is quiet to a child scanning the screen and obvious to a parent looking for it.
+
+Rejected: putting the admin link on the launch screen. The owner is also a
+family in the pilot, and a link to the screen that lists every family's
+children does not belong on the screen a nine-year-old is looking at.
+
+
+## 24. "Waiting for admin to approve you", in those words
+
+A family that cannot start yet sees that sentence where the button would be,
+rather than a status word. The owner's wording, and it is better than the
+alternatives for a reason worth writing down: it says both that somebody is
+holding things up and who, so a parent does not sit wondering whether the site
+is broken. `pending` says neither.
+
+
+## 25. One child at a time, and children reconciled by id
+
+Correcting an age used to mean reopening the whole form: three children's
+descriptions on screen to change one number, and every answer written back
+over itself. `onboarding.html?child=<id>` now opens the same form for one
+child, with every family-wide question hidden.
+
+That forced a change underneath. `saveProfile` deleted every child row and
+reinserted them, which was defended at the time as simpler than reconciling.
+It was simpler and it was wrong twice over: a child's row id changed on every
+save, so nothing could ever link to one child, and a failure between the delete
+and the insert left a family with no children at all - the one state the form
+cannot recover from. Children are now updated by id, inserted when new, and
+deleted only when actually removed.
+
+No new approval plumbing was needed: the `children_send_family_for_review`
+trigger already sends a family back to pending when any child row changes, so
+fixing one child still gets looked at.
+
+
+## 26. The PIN is asked before every session, and handed over inside the parent area
+
+Two rules that look contradictory and are not.
+
+**Every session asks.** No remembered window. A window is the obvious
+convenience and the wrong one here: the tablet is put down in a room with the
+children in it the moment a session ends, and fifteen remembered minutes is
+precisely when one of them picks it up. There is a second, independent reason
+the kids' screen cannot take a shortcut - the tap that accepts the PIN is the
+user gesture the browser grants the microphone under, so resolving the gate
+without one would start a session with no audio at all.
+
+**The parent area hands one unlock to the next page.** The portal, the family's
+answers and one child's answers are three pages behind the same PIN, and asking
+for it on each of them within five seconds is how a parent ends up choosing
+1234. So a page that has just been unlocked may pass one unlock along.
+
+It is not a window. The token lives in `sessionStorage`, is consumed by the
+first page that reads it, and survives exactly one navigation: a reload asks
+again, a second link asks again, another tab never had it. `requirePin` ignores
+it unless the caller passes `acceptHandoff`, which is off by default and is
+never passed on the kids' screen. A test seeds the token by hand and asserts
+`pip.html` still demands the PIN, because "never issued" and "ignored" are
+different guarantees and only the second one survives a refactor.

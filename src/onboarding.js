@@ -1,6 +1,6 @@
 import { requireSession, signOut } from './lib/auth.js';
-import { requirePin } from './lib/pin-gate.js';
-import { loadFamily, loadChildren, saveProfile } from './lib/data.js';
+import { requirePin, grantHandoff } from './lib/pin-gate.js';
+import { loadFamily, loadChildren, loadChild, saveProfile, saveChild } from './lib/data.js';
 import {
   PERSONALITY_SUGGESTIONS,
   CONFLICT_SUGGESTIONS,
@@ -21,10 +21,18 @@ import {
  * up" — so splitting on commas would tear them in half when the form is
  * reopened to edit. Nothing in any list contains a semicolon, which makes the
  * round trip exact.
+ *
+ * ?child=<id> opens the same form for one child only, with everything about
+ * the rest of the family hidden. Correcting an age should not mean rereading
+ * three children's descriptions, and should not rewrite answers nobody
+ * touched.
  */
 
 const SEPARATOR = '; ';
 const MAX_CHILDREN = 5;
+
+/** The single child being fixed, or null for the whole-family form. */
+const onlyChildId = new URLSearchParams(location.search).get('child');
 
 const form = document.querySelector('#profile');
 const notice = document.querySelector('#notice');
@@ -104,6 +112,9 @@ function addChild(child) {
   renderChips(node.querySelector('.js-conflict-chips'), CONFLICT_SUGGESTIONS, `conflict-${id}`);
 
   if (child) {
+    // The row id rides along on the block, so saving updates this child
+    // rather than deleting every child and writing them all back.
+    if (child.id) node.dataset.childId = child.id;
     name.value = child.first_name ?? '';
     age.value = child.age ?? '';
     split(child.personality, node.querySelector('.js-personality-chips'), node.querySelector('.js-personality-other'));
@@ -129,7 +140,9 @@ function renumber() {
     // With only one child left, removing it would leave nothing to mediate.
     block.querySelector('.js-remove').classList.toggle('hidden', blocks.length <= 1);
   });
-  document.querySelector('#add-child').classList.toggle('hidden', blocks.length >= MAX_CHILDREN);
+  document
+    .querySelector('#add-child')
+    .classList.toggle('hidden', onlyChildId !== null || blocks.length >= MAX_CHILDREN);
 }
 
 document.querySelector('#add-child').addEventListener('click', () => {
@@ -173,9 +186,34 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
     await requirePin(document.querySelector('#stage-pin'), {
       heading: 'Parent PIN',
       explainer: 'These answers are about your children, so they stay behind the PIN.',
+      acceptHandoff: true,
     });
   }
   document.querySelector('#form-area').classList.remove('hidden');
+
+  // Fixing one child: hide the family-wide questions and load only them.
+  if (onlyChildId && family) {
+    const child = await loadChild(onlyChildId);
+    if (!child) {
+      location.replace('/parents.html');
+      return;
+    }
+
+    for (const node of document.querySelectorAll('.js-family-only')) {
+      node.classList.add('hidden');
+    }
+    document.querySelector('#lede').textContent =
+      'Change whatever needs changing. Nothing about your other children is touched.';
+    document.querySelector('#form-title').textContent = `About ${child.first_name}`;
+    document.title = `About ${child.first_name} — Pip`;
+    submit.textContent = 'Save';
+
+    const block = addChild(child);
+    // Nothing to remove here: that belongs on the whole-family form, where
+    // the other children are visible and the consequence is obvious.
+    block.querySelector('.js-remove').classList.add('hidden');
+    return;
+  }
 
   if (family) {
     submit.textContent = 'Save and send for approval';
@@ -203,6 +241,8 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
     // start from than a half-filled one.
     addChild();
     addChild();
+    // Nowhere to go back to yet.
+    document.querySelector('#back').classList.add('hidden');
   }
 })().catch((error) => {
   notice.textContent = error.message;
@@ -247,6 +287,7 @@ form.addEventListener('submit', async (event) => {
     }
 
     children.push({
+      id: block.dataset.childId || null,
       first_name: name,
       age,
       personality: combine(block.querySelector('.js-personality-chips'), block.querySelector('.js-personality-other')),
@@ -257,6 +298,23 @@ form.addEventListener('submit', async (event) => {
   if (firstProblem) {
     firstProblem.focus();
     notice.textContent = 'A couple of answers need a look before this can be sent.';
+    return;
+  }
+
+  // One child: write just that row. A trigger in the database sends the
+  // family back for review, so an edited child still gets looked at.
+  if (onlyChildId) {
+    submit.disabled = true;
+    submit.textContent = 'Saving…';
+    try {
+      await saveChild(onlyChildId, children[0]);
+      grantHandoff();
+      location.replace('/parents.html');
+    } catch (error) {
+      notice.textContent = error.message;
+      submit.disabled = false;
+      submit.textContent = 'Save';
+    }
     return;
   }
 
@@ -288,6 +346,8 @@ form.addEventListener('submit', async (event) => {
     submit.textContent = 'Send for approval';
   }
 });
+
+document.querySelector('#back').addEventListener('click', grantHandoff);
 
 document.querySelector('#sign-out').addEventListener('click', async () => {
   await signOut();

@@ -16,6 +16,12 @@ import { requirePin } from './lib/pin-gate.js';
  * wants should stop the moment somebody says so, and asking for a PIN first
  * meant Pip kept talking while it was typed. A child who ends a session has
  * broken nothing and cannot start another.
+ *
+ * It is asked for every session, with no remembered window. A window is the
+ * obvious convenience and it is the wrong one here: the device is put down in
+ * a room with the children in it the moment a session ends, and fifteen
+ * remembered minutes is exactly when one of them would pick it up. Ending a
+ * session leaves this page, so coming back always asks again.
  */
 
 const stagePin = document.querySelector('#stage-pin');

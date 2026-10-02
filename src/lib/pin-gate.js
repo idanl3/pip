@@ -9,6 +9,41 @@ import {
 } from './pin.js';
 
 /**
+ * One unlock, handed to the next page in this tab.
+ *
+ * The parent area is several pages - the portal, the family's answers, one
+ * child's answers - and asking for the same PIN on each of them within a few
+ * seconds is how a parent ends up choosing 1234. So a page that has just been
+ * unlocked may pass one unlock to the page it is sending the parent to.
+ *
+ * It is not a remembered window. The token is per-tab, is consumed by the
+ * first page that reads it, and survives exactly one navigation: a reload
+ * asks again, a second link asks again, another tab never had it. And the
+ * kids' screen deliberately does not accept it - see acceptHandoff below.
+ */
+
+const HANDOFF_KEY = 'pip.pin.handoff.v1';
+
+export function grantHandoff() {
+  try {
+    sessionStorage.setItem(HANDOFF_KEY, '1');
+  } catch {
+    // Private browsing can refuse this. Asking for the PIN again is the
+    // correct way to fail.
+  }
+}
+
+function takeHandoff() {
+  try {
+    const held = sessionStorage.getItem(HANDOFF_KEY) !== null;
+    sessionStorage.removeItem(HANDOFF_KEY);
+    return held;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The PIN keypad, as a gate in front of something.
  *
  * Two things sit behind it, and the brief asks for both: starting a session,
@@ -24,8 +59,18 @@ import {
  * Resolves when the PIN is accepted. Never rejects: a parent who cannot
  * remember it stays on this screen, which is the correct outcome.
  */
-export function requirePin(mount, { heading, explainer } = {}) {
+export function requirePin(mount, { heading, explainer, acceptHandoff = false } = {}) {
   const creating = !isPinSet();
+
+  // Off by default, and off on the kids' screen for two separate reasons.
+  // A session must be behind a PIN every single time: the tablet is put down
+  // in a room with the children in it the moment one ends. And the tap that
+  // accepts the PIN is the user gesture the browser grants the microphone
+  // under, so resolving without one would start a session with no audio.
+  if (acceptHandoff && !creating && takeHandoff()) {
+    mount.classList.add('hidden');
+    return Promise.resolve();
+  }
 
   mount.replaceChildren();
   mount.classList.remove('hidden');

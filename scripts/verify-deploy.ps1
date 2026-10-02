@@ -79,7 +79,7 @@ Check 'no uncommitted changes' ([string]::IsNullOrWhiteSpace($dirty)) `
   "uncommitted work cannot be live:`n$dirty"
 
 # --- pages -------------------------------------------------------------------
-$pages = @('/index.html', '/join.html', '/onboarding.html', '/home.html', '/pip.html', '/admin.html', '/404.html')
+$pages = @('/index.html', '/join.html', '/onboarding.html', '/home.html', '/parents.html', '/pip.html', '/admin.html', '/404.html')
 
 ''
 '=== pages ==='
