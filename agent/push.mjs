@@ -83,17 +83,25 @@ const END_CALL = {
  * the previous screen. Greeting children by name is also the fastest way to
  * tell them this thing knows who they are.
  *
- * It then has to end with a question. A fixed opening line is spoken and the
- * agent waits: it does not carry on by itself. A greeting that merely stated
- * why Pip was there left two children listening to silence, waiting for a
- * turn nobody had offered them.
+ * It then has to end with a question, because a fixed opening line is spoken
+ * and the agent waits: it does not carry on by itself. A greeting that merely
+ * stated why Pip was there left two children listening to silence.
+ *
+ * The question is deliberately trivial. An earlier version asked who wanted to
+ * speak first, which handed the children a decision that Pip's own Stage 2
+ * says Pip should make, using what it knows about them — the quiet one, or the
+ * one who gets talked over, goes first. Asking two children who had just been
+ * fighting to agree on who starts is an invitation to start again. "Can you
+ * hear me okay?" gets a yes from somebody and nothing else.
+ *
+ * The rest of the wording is the owner's, restored. Do not reword it.
  *
  * {{greeting_names}} is names only. children_in_session is a sentence and
  * cannot be said out loud.
  */
 const FIRST_MESSAGE =
-  "Hi {{greeting_names}}! I'm Pip, and I'm here to help you sort this out. " +
-  'Who wants to tell me what happened first?';
+  "Hi {{greeting_names}}! I'm Pip. I heard something tricky happened, and I'm " +
+  'here to help you figure it out. Can you hear me okay?';
 
 const SETTINGS = {
   // Fifteen minutes. Ten was not headroom: a real session was found cut off

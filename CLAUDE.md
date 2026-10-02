@@ -266,3 +266,15 @@ Decided by the owner after the brief was written. Where these conflict with sect
 **Family-specific text is data, not prompt.** Every family-specific detail in the current instruction file was test data from the owner's own home. All of it comes from the onboarding form and lives in the database, per family.
 
 **The instruction files stay out of the public repository for now.** The repository has to be public for GitHub Pages on the free plan, and git history cannot be unpublished. Both instruction files are therefore gitignored until the family profile inside them is replaced by database-driven variables in phase 3. They remain on the owner's machine. Nothing identifying a child has ever been pushed.
+
+**Never change the essence of the prompt without asking first.** Wording,
+emphasis and anything that alters how Pip behaves are the owner's, not ours.
+This is not the same as the mechanical templating allowed above: replacing a
+hardcoded profile with a variable is permitted, rewriting a greeting is not.
+
+It has already gone wrong once. The opening line was rewritten so that it
+dropped "I heard something tricky happened" and asked the children who wanted
+to speak first — handing them a decision that Pip's own Stage 2 says Pip
+should make, using what it knows about them, specifically so that choosing is
+not the next argument. If a mechanical constraint seems to force a change in
+behaviour, say so and ask; do not resolve it quietly.

@@ -485,3 +485,35 @@ headers, and the test runner unable to pass an argument containing a space.
 
 **Cost:** a few pennies per run. Worth it against the alternative, which was
 asking the owner to test and having it not work.
+
+---
+
+## 22. The prompt's essence is the owner's. Ask first.
+**2026-10-02 — owner, after it went wrong**
+
+Wording, emphasis, and anything that changes how Pip behaves are not ours to
+change. Replacing a hardcoded profile with a variable is mechanical and
+allowed. Rewriting a greeting is not.
+
+**What happened:** the opening line had to end with a question, because a fixed
+first message is spoken and the agent then waits rather than carrying on. That
+is a real mechanical constraint. Resolving it quietly was the mistake: the
+rewrite dropped "I heard something tricky happened" — the owner's wording,
+which acknowledges the situation before asking anything of the children — and
+replaced it with "Who wants to tell me what happened first?"
+
+That second part was worse than a wording change. Pip's own stage 2 says Pip
+chooses who speaks first, favouring the child who is more upset or who tends to
+get talked over. Asking two children who have just been fighting to agree on
+who starts is an invitation to start again. The rewrite handed away a decision
+the prompt had deliberately given to Pip.
+
+**The fix the owner proposed, and it is better:** keep their wording, and end
+with something trivial enough to be answered by anybody — "Can you hear me
+okay?" — which gets the conversation moving without deciding anything. Pip then
+chooses whose turn it is, as it always did.
+
+**The rule, now also in `CLAUDE.md` section 12:** if a mechanical constraint
+appears to force a change in behaviour, say so and ask. Do not resolve it
+quietly. The constraint was worth raising; the solution was the owner's to
+pick, and theirs was better than mine.
