@@ -40,15 +40,60 @@ let blob = null;
 let session = null;
 const transcript = [];
 
-function fail(message, { offerRetry = false, detail = '' } = {}) {
+/**
+ * What the button under the message does.
+ *
+ * 'microphone' makes it ask for the microphone and nothing else. 'reload'
+ * starts the page over, which is all that can be done about anything else.
+ */
+let retryAction = 'reload';
+
+function fail(message, { offerRetry = false, detail = '', action = 'reload' } = {}) {
   notice.textContent = message;
   noticeDetail.textContent = detail;
+  retryAction = action;
+  retryButton.textContent = action === 'microphone' ? 'Allow the microphone' : 'Try again';
   retryButton.classList.toggle('hidden', !offerRetry);
 }
 
-// Reloading is the only thing that re-asks for a permission the browser has
-// already answered, so this is a reload rather than a second attempt in place.
-retryButton.addEventListener('click', () => location.reload());
+/**
+ * The bare request.
+ *
+ * getUserMedia is the first thing this click does - no await, no network, no
+ * work of any kind in front of it. That matters because it is also the
+ * experiment: if a permission prompt appears here and did not appear a second
+ * earlier, the problem is something our page was doing before asking. If no
+ * prompt appears even here, nothing in this page can cause one, and the block
+ * is outside the browser tab.
+ */
+retryButton.addEventListener('click', () => {
+  if (retryAction !== 'microphone' || !navigator.mediaDevices?.getUserMedia) {
+    location.reload();
+    return;
+  }
+  continueAfterMicrophone(navigator.mediaDevices.getUserMedia({ audio: true }));
+});
+
+async function continueAfterMicrophone(asking) {
+  retryButton.disabled = true;
+  try {
+    const stream = await asking;
+    for (const track of stream.getTracks()) track.stop();
+  } catch (error) {
+    retryButton.disabled = false;
+    fail(await microphoneProblem(error), {
+      offerRetry: true,
+      detail: await microphoneDetail(error),
+      action: 'microphone',
+    });
+    return;
+  }
+
+  retryButton.disabled = false;
+  fail('');
+  showStage();
+  await startSession();
+}
 
 /* --- is Pip talking? -----------------------------------------------------
 
@@ -103,24 +148,23 @@ function setConversationState(state) {
     explainer: 'So a session can only be started by you.',
   });
 
-  // The blob first, so there is something alive on screen behind the
-  // permission prompt rather than an empty page. Synchronous, so it costs the
-  // tap's user activation nothing.
-  showStage();
-
-  // The microphone, now, before anything slow happens.
+  // The microphone first, with nothing at all between it and the tap that
+  // accepted the PIN. Raising the blob was here and has moved below: it is
+  // only a few milliseconds of canvas work, but when the thing being debugged
+  // is whether a permission request arrives in time, "only a few
+  // milliseconds" is a guess and not having it there is a fact.
   try {
     await askForMicrophone();
   } catch (error) {
-    stageLive.classList.add('hidden');
-    blob?.stop();
-    blob = null;
     fail(await microphoneProblem(error), {
       offerRetry: true,
       detail: await microphoneDetail(error),
+      action: 'microphone',
     });
     return;
   }
+
+  showStage();
 
   await startSession();
 })().catch((error) => fail(error.message));
@@ -154,7 +198,15 @@ async function askForMicrophone() {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw Object.assign(new Error('no microphone API'), { name: 'NotSupportedError' });
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  const started = performance.now();
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    error.pipElapsedMs = Math.round(performance.now() - started);
+    throw error;
+  }
   for (const track of stream.getTracks()) track.stop();
 }
 
@@ -226,7 +278,12 @@ async function microphoneProblem(error) {
 
 /** The quiet line underneath, so a report can say what actually happened. */
 async function microphoneDetail(error) {
-  return `${error?.name ?? 'unknown'} \u00b7 site permission: ${await sitePermission()}`;
+  // How long the browser took to refuse. A prompt a person actually saw and
+  // dismissed takes seconds; a refusal with no prompt comes back in single
+  // milliseconds. It is the one measurement that separates "they said no" from
+  // "they were never asked".
+  const took = error?.pipElapsedMs === undefined ? '' : ` \u00b7 ${error.pipElapsedMs}ms`;
+  return `${error?.name ?? 'unknown'} \u00b7 site permission: ${await sitePermission()}${took}`;
 }
 
 /** The blob, running, before anything can go wrong. */
@@ -297,6 +354,7 @@ async function startSession() {
     fail(await friendlyStartError(error), {
       offerRetry: isMicrophoneError(error),
       detail: isMicrophoneError(error) ? await microphoneDetail(error) : '',
+      action: isMicrophoneError(error) ? 'microphone' : 'reload',
     });
   }
 }
