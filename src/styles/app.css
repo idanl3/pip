@@ -575,6 +575,13 @@ textarea[aria-invalid='true'] {
   font-weight: 700;
 }
 
+.kid-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: none;
+}
+
 .kid-row__age {
   color: var(--pip-plum-soft);
   font-weight: 400;

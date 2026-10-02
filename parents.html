@@ -62,21 +62,25 @@
         </button>
       </div>
 
-      <!-- The children, names only. Their descriptions are one tap further
-           in, and only for the child being changed. -->
+      <!-- The children live here and nowhere else now. Names and ages only;
+           what a parent wrote about a child is one deliberate tap further in,
+           and only ever for the one child they opened. -->
       <div class="card">
         <p class="card__title">Your children</p>
         <div id="kids"></div>
         <p class="muted muted--spaced">
           Opening a child shows what you wrote about them, so pick your moment.
         </p>
+        <a class="btn btn--quiet" id="add-child" href="/onboarding.html?child=new">
+          Add another child
+        </a>
       </div>
 
       <div class="card">
         <p class="card__title">Everything else</p>
         <div class="stack">
           <a class="btn btn--link" href="/onboarding.html">
-            Your family's answers
+            About your family
           </a>
           <button type="button" class="btn btn--link" id="change-pin">
             Change the PIN on this device

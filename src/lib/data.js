@@ -169,6 +169,80 @@ export async function saveChild(childId, fields) {
   if (error) throw error;
 }
 
+/**
+ * Updates the household answers and nothing else.
+ *
+ * Separate from saveProfile because the form that edits these no longer has
+ * the children on it, and saveProfile reconciles children against what it was
+ * given - handed an empty list, it would delete every child in the family.
+ *
+ * Only the fields actually passed are written. The boxes are shown empty, so a
+ * parent rewrites an answer without reading the old one, and an empty box has
+ * to mean "leave this alone" rather than "erase it": otherwise coming here to
+ * change one answer would quietly wipe the other three.
+ */
+export async function saveHousehold(fields) {
+  const family = await loadFamily();
+  if (!family) throw new Error('No family profile found.');
+
+  const patch = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => {
+      if (value === null || value === undefined) return false;
+      if (Array.isArray(value)) return value.length > 0;
+      return String(value).trim() !== '';
+    }),
+  );
+
+  if (!Object.keys(patch).length) return family;
+
+  const { data, error } = await supabase
+    .from('families')
+    .update(patch)
+    .eq('id', family.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/** Adds one child. The family goes back for review by database trigger. */
+export async function addChild(familyId, fields) {
+  const existing = await loadChildren(familyId);
+  const { data, error } = await supabase
+    .from('children')
+    .insert({
+      family_id: familyId,
+      first_name: fields.first_name,
+      age: fields.age,
+      personality: fields.personality || null,
+      conflict_tendency: fields.conflict_tendency || null,
+      sort_order: existing.length,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Removes one child.
+ *
+ * Refuses to remove the last one. A family with no children cannot start a
+ * session and cannot be mediated, and the only way back would be through the
+ * form that no longer collects them.
+ */
+export async function removeChild(familyId, childId) {
+  const existing = await loadChildren(familyId);
+  if (existing.length <= 1) {
+    throw new Error('A family needs at least one child.');
+  }
+
+  const { error } = await supabase.from('children').delete().eq('id', childId);
+  if (error) throw error;
+}
+
 /** Human wording for a family's status, for the parent's own screen. */
 export function describeStatus(status) {
   switch (status) {

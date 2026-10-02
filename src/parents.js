@@ -1,6 +1,6 @@
 import { requireSession, signOut, isAdmin } from './lib/auth.js';
 import { requirePin, grantHandoff } from './lib/pin-gate.js';
-import { loadFamily, loadChildren, describeStatus } from './lib/data.js';
+import { loadFamily, loadChildren, removeChild, describeStatus } from './lib/data.js';
 import { clearPin } from './lib/pin.js';
 import {
   markGranted,
@@ -63,7 +63,7 @@ const micGrant = document.querySelector('#mic-grant');
   }
 
   await showMinutes(family);
-  renderKids(await loadChildren(family.id));
+  await showKids(family);
 
   await showMicrophone();
 
@@ -88,13 +88,15 @@ async function showMinutes(family) {
 }
 
 /**
- * Names and ages. Nothing else.
+ * Names and ages, and the two things you can do to a child.
  *
- * Fixing one child at a time is the point of the link: correcting an age used
- * to mean reopening the whole form, which put every child's description on
- * screen and wrote all of them back over themselves.
+ * This is the only list of children a parent sees now. Opening one shows what
+ * was written about them; nothing else does, and nothing shows two children's
+ * descriptions at once.
  */
-function renderKids(kids) {
+async function showKids(family) {
+  const kids = await loadChildren(family.id);
+
   kidsHost.replaceChildren(
     ...kids.map((kid) => {
       const row = document.createElement('div');
@@ -109,12 +111,37 @@ function renderKids(kids) {
       age.textContent = ` · ${kid.age}`;
       name.append(age);
 
-      const link = document.createElement('a');
-      link.className = 'btn btn--link';
-      link.href = `/onboarding.html?child=${encodeURIComponent(kid.id)}`;
-      link.textContent = 'Change';
+      const actions = document.createElement('div');
+      actions.className = 'kid-row__actions';
 
-      row.append(name, link);
+      const change = document.createElement('a');
+      change.className = 'btn btn--link';
+      change.href = `/onboarding.html?child=${encodeURIComponent(kid.id)}`;
+      change.textContent = 'Change';
+      actions.append(change);
+
+      // Only when there is more than one. A family with no children cannot be
+      // mediated, and removing the last one would be a dead end.
+      if (kids.length > 1) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn--link';
+        remove.textContent = 'Remove';
+        remove.addEventListener('click', async () => {
+          if (!confirm(`Remove ${kid.first_name}? What Pip knows about them goes too.`)) return;
+          remove.disabled = true;
+          try {
+            await removeChild(family.id, kid.id);
+            await showKids(family);
+          } catch (error) {
+            notice.textContent = error.message;
+            remove.disabled = false;
+          }
+        });
+        actions.append(remove);
+      }
+
+      row.append(name, actions);
       return row;
     }),
   );

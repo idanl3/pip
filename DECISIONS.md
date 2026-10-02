@@ -833,3 +833,39 @@ chrome and the fake-device flag does not reach it, so a click fires `cancel`.
 What is tested is that the control is the one offered where it exists, that our
 button steps aside, and that `setConstraints` is still accepted - which would
 fail loudly if the constraint shape regressed.
+
+
+## 34. The children live in the portal; the household answers are rewritten blind
+
+Two surfaces, cleanly split, replacing one page that did both badly.
+
+**The portal's "Your children" card is the only list of children.** Name, age,
+Change, Remove, and Add another child. Adding opens the single-child page at
+`?child=new`, so a new child's description is written in the one place a
+description is ever shown. Removing refuses to take the last child: a family
+with no children cannot be mediated, and the form no longer collects them.
+
+**"About your family" holds only the household answers** - what the children
+call their parents, what they argue about, house rules, anything to handle with
+extra care - and shows every box **empty**. A parent rewrites an answer rather
+than editing one they can read, which was the owner's call and is consistent
+with how the children's descriptions already work.
+
+That forces the rule that an empty box means **leave this as it is**, not
+erase it. The alternative wipes three answers for a parent who came to change
+one, and they would not even see it happen, because the boxes they wiped were
+blank in front of them. `saveHousehold` therefore drops empty fields and writes
+only what was actually typed. The cost is honest and worth stating: there is no
+way for a parent to clear an answer back to nothing. If that turns out to
+matter - "extra care" is the one that genuinely expires - it wants an explicit
+control, not a change to this rule.
+
+`saveHousehold` is separate from `saveProfile` for a concrete reason, not
+tidiness: `saveProfile` reconciles children against the list it is given, and
+this form has no children on it. Handed an empty list it would delete every
+child in the family.
+
+Two pieces of dead code went with this. `hideDescription` became unreachable -
+it folded a saved child's description away on the whole-family form, and that
+form no longer renders children at all - and `loadChildren` was left imported
+and unused. Both removed rather than left to confuse the next session.

@@ -37,8 +37,10 @@
       <div id="review-note" class="notice notice--waiting hidden"></div>
 
       <form id="profile" novalidate>
-        <!-- Parents ------------------------------------------------------ -->
-        <div class="js-family-only">
+        <!-- The household ------------------------------------------------
+             Shown on first run, and again on its own when a parent comes back
+             to rewrite these. Never shown on a single child's page. -->
+        <div class="js-household">
         <h2>What do your children call you?</h2>
         <div class="field">
           <p class="field__hint">
@@ -55,23 +57,27 @@
             placeholder="Or type them, separated by commas"
           />
         </div>
+        </div>
 
-        <!-- Children ----------------------------------------------------- -->
+        <!-- The children ---------------------------------------------------
+             On first run, all of them. Afterwards this form never lists them
+             again: they live in the parents' portal, and one child at a time
+             opens here through ?child=. -->
+        <div class="js-children">
         <h2>Your children</h2>
         <p class="field__hint">
           First names only. Pip asks nothing else about them, and never asks
           them for anything either.
         </p>
-        </div>
 
         <div id="children"></div>
 
         <button type="button" class="btn btn--quiet" id="add-child">
           Add another child
         </button>
+        </div>
 
-        <!-- The family ---------------------------------------------------- -->
-        <div class="js-family-only">
+        <div class="js-household">
         <h2>What do they argue about?</h2>
         <div class="field">
           <p class="field__hint">

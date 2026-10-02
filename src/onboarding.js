@@ -1,6 +1,13 @@
 import { requireSession, signOut } from './lib/auth.js';
 import { requirePin, grantHandoff } from './lib/pin-gate.js';
-import { loadFamily, loadChildren, loadChild, saveProfile, saveChild } from './lib/data.js';
+import {
+  loadFamily,
+  loadChild,
+  saveProfile,
+  saveChild,
+  saveHousehold,
+  addChild as insertChild,
+} from './lib/data.js';
 import {
   PERSONALITY_SUGGESTIONS,
   CONFLICT_SUGGESTIONS,
@@ -22,19 +29,23 @@ import {
  * reopened to edit. Nothing in any list contains a semicolon, which makes the
  * round trip exact.
  *
- * ?child=<id> opens the same form for one child only, with everything about
- * the rest of the family hidden. Correcting an age should not mean rereading
- * three children's descriptions, and should not rewrite answers nobody
- * touched.
+ * It has three views, and which one you get is the whole design.
  *
- * Which is also why the whole-family form stops showing those descriptions
- * once they have been written. On first run it has to - that is where a parent
- * writes them. After that, every child's temperament and what they do in a
- * fight was on one screen, behind nothing but a PIN, and reading "cries and
- * finds it hard to stop" about yourself over a parent's shoulder is not
- * something a seven-year-old should be able to do by picking up the tablet.
- * Each child's answers are now one deliberate tap further in, one child at a
- * time.
+ * First run, with no family yet: everything, because this is where a profile
+ * gets written.
+ *
+ * ?child=<id>, or ?child=new: one child, and nothing about the household. A
+ * child's temperament and what they do in a fight is the most sensitive thing
+ * here - reading "cries and finds it hard to stop" about yourself over a
+ * parent's shoulder is not something a seven-year-old should be able to do by
+ * picking up the tablet - so it is never on screen beside anything else, and
+ * never for a child you did not deliberately open.
+ *
+ * An existing family, with no child named: the household questions only, and
+ * every box empty. The children are not here at all; they live in the parents'
+ * portal. Empty boxes are deliberate - a parent rewrites an answer rather than
+ * editing one - which makes an empty box mean "leave this as it is", because
+ * the alternative erases three answers for a parent who came to change one.
  */
 
 const SEPARATOR = '; ';
@@ -51,6 +62,9 @@ const template = document.querySelector('#child-template');
 const submit = document.querySelector('#submit');
 
 let uid = 0;
+
+/** The signed-in parent's family, once loaded. Null on first run. */
+let familyRow = null;
 
 /* --- chips --------------------------------------------------------------- */
 
@@ -130,13 +144,6 @@ function addChild(child) {
     split(child.conflict_tendency, node.querySelector('.js-conflict-chips'), node.querySelector('.js-conflict-other'));
   }
 
-  // An existing child, on the whole-family form: name and age stay, the
-  // description does not. A child added just now keeps its questions, because
-  // they have to be answered somewhere.
-  if (child?.id && !onlyChildId) {
-    hideDescription(node, child);
-  }
-
   node.querySelector('.js-remove').addEventListener('click', () => {
     node.remove();
     renumber();
@@ -145,28 +152,6 @@ function addChild(child) {
   childrenHost.append(node);
   renumber();
   return node;
-}
-
-/**
- * Folds a saved child's description away behind a link to their own page.
- *
- * The fields stay in the form rather than being removed, holding the values
- * they were loaded with. That is deliberate: saving this form writes every
- * child, so a field that had been emptied would quietly erase what the parent
- * wrote. Hidden and unchanged, it round-trips to exactly what it already was.
- */
-function hideDescription(node, child) {
-  const personality = node.querySelector('.js-personality-chips').closest('.field');
-  const conflict = node.querySelector('.js-conflict-chips').closest('.field');
-  personality.classList.add('hidden');
-  conflict.classList.add('hidden');
-
-  const link = document.createElement('a');
-  link.className = 'btn btn--link';
-  link.href = `/onboarding.html?child=${encodeURIComponent(child.id)}`;
-  link.textContent = `Change what Pip knows about ${child.first_name}`;
-  link.addEventListener('click', grantHandoff);
-  conflict.after(link);
 }
 
 function renumber() {
@@ -216,6 +201,7 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
   if (!session) return;
 
   const family = await loadFamily();
+  familyRow = family;
 
   // A profile that exists is a profile worth protecting. On first run there is
   // nothing here yet and the parent has just signed up, so asking for a PIN
@@ -229,52 +215,48 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
   }
   document.querySelector('#form-area').classList.remove('hidden');
 
-  // Fixing one child: hide the family-wide questions and load only them.
+  if (family && family.status === 'needs_changes' && family.review_note) {
+    reviewNote.textContent = `Idan asked for a change: ${family.review_note}`;
+    reviewNote.classList.remove('hidden');
+  }
+
+  // --- one child, opened on purpose --------------------------------------
   if (onlyChildId && family) {
-    const child = await loadChild(onlyChildId);
-    if (!child) {
+    const child = onlyChildId === 'new' ? null : await loadChild(onlyChildId);
+    if (onlyChildId !== 'new' && !child) {
       location.replace('/parents.html');
       return;
     }
 
-    for (const node of document.querySelectorAll('.js-family-only')) {
-      node.classList.add('hidden');
-    }
-    document.querySelector('#lede').textContent =
-      'Change whatever needs changing. Nothing about your other children is touched.';
-    document.querySelector('#form-title').textContent = `About ${child.first_name}`;
-    document.title = `About ${child.first_name} — Pip`;
+    hide('.js-household');
+    document.querySelector('#lede').textContent = child
+      ? 'Change whatever needs changing. Nothing about your other children is touched.'
+      : 'Just this child. Nothing about the rest of your family is touched.';
+    document.querySelector('#form-title').textContent = child
+      ? `About ${child.first_name}`
+      : 'Another child';
+    document.title = `${document.querySelector('#form-title').textContent} — Pip`;
     submit.textContent = 'Save';
 
-    const block = addChild(child);
-    // Nothing to remove here: that belongs on the whole-family form, where
-    // the other children are visible and the consequence is obvious.
+    const block = addChild(child ?? undefined);
+    // Removing belongs in the portal, beside the other children, where the
+    // consequence is in front of you.
     block.querySelector('.js-remove').classList.add('hidden');
     return;
   }
 
+  // --- the household, rewritten from scratch -----------------------------
   if (family) {
+    hide('.js-children');
+    document.querySelector('#form-title').textContent = 'About your family';
+    document.querySelector('#lede').textContent =
+      'These are for Pip, not for your children. Anything you leave empty stays ' +
+      'as it is, and anything you write replaces what is there.';
     submit.textContent = 'Save and send for approval';
+    return;
+  }
 
-    for (const word of family.parent_names ?? []) {
-      const chip = parentChips.querySelector(`input[value="${CSS.escape(word)}"]`);
-      if (chip) chip.checked = true;
-      else parentOther.value = parentOther.value ? `${parentOther.value}, ${word}` : word;
-    }
-
-    split(family.recurring_conflicts, recurringChips, recurringOther);
-    split(family.house_rules, rulesChips, rulesOther);
-    extraCare.value = family.extra_care ?? '';
-
-    if (family.status === 'needs_changes' && family.review_note) {
-      reviewNote.textContent = `Idan asked for a change: ${family.review_note}`;
-      reviewNote.classList.remove('hidden');
-    }
-
-    const kids = await loadChildren(family.id);
-    if (kids.length) kids.forEach(addChild);
-    else addChild();
-  } else {
+  {
     // Two is the common case for siblings, and an empty page is harder to
     // start from than a half-filled one.
     addChild();
@@ -285,6 +267,10 @@ renderChips(rulesChips, HOUSE_RULE_SUGGESTIONS, 'rules');
 })().catch((error) => {
   notice.textContent = error.message;
 });
+
+function hide(selector) {
+  for (const node of document.querySelectorAll(selector)) node.classList.add('hidden');
+}
 
 /* --- save --------------------------------------------------------------- */
 
@@ -339,19 +325,44 @@ form.addEventListener('submit', async (event) => {
     return;
   }
 
-  // One child: write just that row. A trigger in the database sends the
-  // family back for review, so an edited child still gets looked at.
+  // One child: write just that row, or insert a new one. A trigger in the
+  // database sends the family back for review either way, so a changed child
+  // still gets looked at.
   if (onlyChildId) {
     submit.disabled = true;
     submit.textContent = 'Saving…';
     try {
-      await saveChild(onlyChildId, children[0]);
+      if (onlyChildId === 'new') await insertChild(familyRow.id, children[0]);
+      else await saveChild(onlyChildId, children[0]);
       grantHandoff();
       location.replace('/parents.html');
     } catch (error) {
       notice.textContent = error.message;
       submit.disabled = false;
       submit.textContent = 'Save';
+    }
+    return;
+  }
+
+  // The household, on its own. The boxes started empty, so only what was
+  // actually written gets sent: an empty box means "leave this as it is", not
+  // "erase it". saveHousehold drops the empty ones.
+  if (familyRow) {
+    submit.disabled = true;
+    submit.textContent = 'Saving…';
+    try {
+      await saveHousehold({
+        parent_names: parentNames,
+        recurring_conflicts: combine(recurringChips, recurringOther),
+        house_rules: combine(rulesChips, rulesOther),
+        extra_care: extraCare.value.trim() || null,
+      });
+      grantHandoff();
+      location.replace('/parents.html');
+    } catch (error) {
+      notice.textContent = error.message;
+      submit.disabled = false;
+      submit.textContent = 'Save and send for approval';
     }
     return;
   }

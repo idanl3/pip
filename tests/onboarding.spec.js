@@ -141,9 +141,8 @@ test('the saved profile comes back intact when reopened', async ({ page }) => {
   await page.click('#submit');
   await page.waitForURL('**/home.html');
 
-  // Reopening asks for a PIN now: these answers describe the children, and a
-  // child should not be able to read them by picking up the tablet. This
-  // context has no PIN yet, so the gate offers to set one.
+  // Reopening asks for a PIN: these answers are for Pip, not for children.
+  // This context has no PIN yet, so the gate offers to set one.
   await page.goto('/onboarding.html');
   await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
   for (const digit of '481902') {
@@ -151,39 +150,85 @@ test('the saved profile comes back intact when reopened', async ({ page }) => {
   }
   await page.click('#stage-pin [data-pin-submit]');
 
-  const reopened = page.locator('#children > .child').nth(0);
-  await expect(reopened.locator('.js-name')).toHaveValue('Dalet');
-  await expect(reopened.locator('.js-age')).toHaveValue('8');
-
-  // The description is not on this screen any more - it is one deliberate tap
-  // further in, on that child's own page - but the values are still loaded and
-  // still exact, because saving this form writes every child and a field that
-  // had been emptied would erase what the parent wrote.
-  await expect(reopened.locator('.js-personality-other')).toBeHidden();
+  // The children are not on this screen at all any more - they live in the
+  // portal, and open one at a time - so nothing about Dalet is readable here.
+  await expect(page.locator('#children > .child')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('Dalet');
   await expect(page.locator('body')).not.toContainText('Loves drawing');
 
-  // The chip is ticked again, intact, and the typed words are back in the box
-  // rather than merged into the chips.
-  await expect(
-    reopened.locator('.js-personality-chips input:checked'),
-  ).toHaveValue(commaTrait);
-  await expect(reopened.locator('.js-personality-other')).toHaveValue('Loves drawing');
+  // And the household boxes start empty, so a parent rewrites an answer
+  // instead of editing one they can read.
+  await expect(page.locator('#recurring-other')).toHaveValue('');
+  await expect(page.locator('#extra-care')).toHaveValue('');
+  await expect(page.locator('#parent-chips input:checked')).toHaveCount(0);
 
-  // Saving without touching anything must leave the description exactly as it
-  // was. This is the failure the hidden fields exist to prevent.
+  // Saving an untouched form must change nothing. Empty means "leave this as
+  // it is": the alternative erases three answers for a parent who came to
+  // change one.
   await page.click('#submit');
-  await page.waitForURL('**/home.html');
+  await page.waitForURL('**/parents.html');
 
   const [row] = await sql(`
-    select c.personality
+    select c.personality, f.parent_names::text as parents
       from public.children c
       join public.families f on f.id = c.family_id
       join auth.users u on u.id = f.owner_id
      where u.email = '${email}'
   `);
   expect(row.personality).toBe(`${commaTrait}; Loves drawing`);
+  expect(row.parents).toContain('Mum');
 
   expect(errors).toEqual([]);
+});
+
+/**
+ * Rewriting the household answers, blind.
+ *
+ * The boxes are empty on purpose - a parent writes a fresh answer rather than
+ * editing one they can read - so the rule has to be that an empty box leaves
+ * what is stored alone, and anything written replaces it.
+ */
+test('writing one household answer leaves the others alone', async ({ page }) => {
+  const email = testEmail();
+
+  await page.goto(`/join.html?code=${await createInvite()}`);
+  await page.fill('#email', email);
+  await page.fill('#password', TEST_PASSWORD);
+  await page.click('#submit');
+  await page.waitForURL('**/onboarding.html');
+
+  const children = page.locator('#children > .child');
+  await children.nth(1).locator('.js-remove').click();
+  await children.nth(0).locator('.js-name').fill('Nun');
+  await children.nth(0).locator('.js-age').fill('7');
+  await page.locator('#parent-chips .chip', { hasText: 'Mum' }).click();
+  await page.locator('#rules-chips .chip', { hasText: 'No hitting' }).click();
+  await page.fill('#extra-care', 'A new baby arrived recently.');
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  // Back in, and only one answer is written.
+  await page.goto('/onboarding.html');
+  await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+
+  await page.fill('#extra-care', 'The baby is settled now.');
+  await page.click('#submit');
+  await page.waitForURL('**/parents.html');
+
+  const [row] = await sql(`
+    select f.extra_care, f.house_rules, f.parent_names::text as parents
+      from public.families f
+      join auth.users u on u.id = f.owner_id
+     where u.email = '${email}'
+  `);
+  expect(row.extra_care).toBe('The baby is settled now.');
+  // Untouched, from boxes that were never filled in.
+  expect(row.house_rules).toContain('No hitting');
+  expect(row.parents).toContain('Mum');
 });
 
 test('every page loads without a script error', async ({ page }) => {
@@ -486,4 +531,78 @@ test.describe('before the microphone has been granted', () => {
     await page.waitForSelector('#ready:not(.hidden)');
     await expect(page.locator('#mic-nudge')).toBeVisible();
   });
+});
+
+/**
+ * Adding and removing a child, from the portal.
+ *
+ * Both used to live on the whole-family form, which no longer carries the
+ * children at all. Adding reuses the single-child page, so a new child's
+ * description is written in the one place a description is ever shown.
+ */
+test('children can be added and removed from the portal', async ({ page }) => {
+  const errors = watchForErrors(page);
+  const email = testEmail();
+
+  await page.goto(`/join.html?code=${await createInvite()}`);
+  await page.fill('#email', email);
+  await page.fill('#password', TEST_PASSWORD);
+  await page.click('#submit');
+  await page.waitForURL('**/onboarding.html');
+
+  const children = page.locator('#children > .child');
+  await children.nth(0).locator('.js-name').fill('Samekh');
+  await children.nth(0).locator('.js-age').fill('9');
+  await children.nth(1).locator('.js-name').fill('Ayin');
+  await children.nth(1).locator('.js-age').fill('6');
+  await page.locator('#parent-chips .chip', { hasText: 'Mum' }).click();
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  await page.goto('/parents.html');
+  for (const digit of '481902') {
+    await page.click(`#stage-pin button[data-key="${digit}"]`);
+  }
+  await page.click('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#portal:not(.hidden)');
+  await expect(page.locator('.kid-row')).toHaveCount(2);
+
+  // --- adding ------------------------------------------------------------
+  await page.getByRole('link', { name: 'Add another child' }).click();
+  await page.waitForURL(/onboarding\.html\?child=new/);
+  await page.waitForSelector('#form-area:not(.hidden)');
+
+  // One blank child, and nothing about the household.
+  await expect(page.locator('#children > .child')).toHaveCount(1);
+  await expect(page.locator('#form-title')).toHaveText('Another child');
+  await expect(page.locator('#extra-care')).toBeHidden();
+  await expect(page.locator('#children > .child .js-name')).toHaveValue('');
+
+  const block = page.locator('#children > .child').nth(0);
+  await block.locator('.js-name').fill('Pe');
+  await block.locator('.js-age').fill('4');
+  await block.locator('.js-personality-other').fill('Follows the big ones around');
+  await page.click('#submit');
+  await page.waitForURL('**/parents.html');
+  await expect(page.locator('.kid-row')).toHaveCount(3);
+
+  // --- removing ----------------------------------------------------------
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('.kid-row', { hasText: 'Ayin' }).getByRole('button', { name: 'Remove' }).click();
+  await expect(page.locator('.kid-row')).toHaveCount(2);
+
+  const rows = await sql(`
+    select c.first_name, c.age, c.personality, f.status
+      from public.children c
+      join public.families f on f.id = c.family_id
+      join auth.users u on u.id = f.owner_id
+     where u.email = '${email}'
+     order by c.sort_order
+  `);
+  expect(rows.map((r) => r.first_name)).toEqual(['Samekh', 'Pe']);
+  expect(rows[1].personality).toBe('Follows the big ones around');
+  // Any change to a child means a fresh look.
+  expect(rows[0].status).toBe('pending');
+
+  expect(errors).toEqual([]);
 });

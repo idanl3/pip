@@ -127,12 +127,22 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
   await expect(familyPage.locator('#review-note')).toContainText('a bit more about Zayin');
 
   // And editing should send it back to pending without the owner doing
-  // anything, because any parent edit means a fresh look. The age, because
-  // the descriptions are no longer on this screen - they are one tap further
-  // in, on that child's own page.
+  // anything, because any parent edit means a fresh look. The child's own
+  // page, because this form no longer carries the children at all.
+  const childId = (
+    await sql(`
+      select c.id from public.children c
+        join public.families f on f.id = c.family_id
+        join auth.users u on u.id = f.owner_id
+       where u.email = '${familyEmail}'
+    `)
+  )[0].id;
+
+  await familyPage.goto(`/onboarding.html?child=${childId}`);
+  await passPinGate(familyPage);
   await familyPage.locator('#children > .child').nth(0).locator('.js-age').fill('7');
   await familyPage.click('#submit');
-  await familyPage.waitForURL('**/home.html');
+  await familyPage.waitForURL('**/parents.html');
   expect((await familyOf(familyEmail)).status).toBe('pending');
 
   // --- a plain parent cannot reach the admin screen ----------------------
