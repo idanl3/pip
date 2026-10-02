@@ -40,6 +40,18 @@
 
     <section id="stage-pin" class="pip__stage hidden"></section>
 
+    <!-- Shown only when the month is nearly spent. A parent should know
+         before a fight starts that there may not be enough left to finish
+         it. -->
+    <section id="stage-minutes" class="pip__stage hidden">
+      <div class="pip__panel pip__panel--centred">
+        <h1 class="pip__heading" id="minutes-title"></h1>
+        <p class="muted" id="minutes-body"></p>
+        <button type="button" class="btn btn--block" id="minutes-go">Start anyway</button>
+        <button type="button" class="btn btn--link" id="minutes-back">Not now</button>
+      </div>
+    </section>
+
     <section id="stage-live" class="pip__stage pip__stage--live hidden">
       <canvas id="blob" class="pip__blob" aria-hidden="true"></canvas>
 

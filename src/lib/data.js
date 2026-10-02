@@ -247,6 +247,24 @@ export async function removeChild(familyId, childId) {
   if (error) throw error;
 }
 
+/**
+ * Minutes left this month.
+ *
+ * From the family_usage view, which derives the total from the sessions rather
+ * than keeping a counter. A counter that has drifted is worse than none: it
+ * either blocks a family with minutes left or bills one without.
+ */
+export async function minutesLeft(family) {
+  const { data } = await supabase
+    .from('family_usage')
+    .select('minutes_used, monthly_minute_limit')
+    .eq('family_id', family.id)
+    .maybeSingle();
+
+  const limit = data?.monthly_minute_limit ?? family.monthly_minute_limit;
+  return Math.max(0, limit - (data?.minutes_used ?? 0));
+}
+
 /** Human wording for a family's status, for the parent's own screen. */
 export function describeStatus(status) {
   switch (status) {

@@ -75,8 +75,30 @@ export async function setPin(pin) {
       salt: toBase64(salt),
       hash: toBase64(hash),
       iterations: ITERATIONS,
+      // How many digits, so the keypad knows when the PIN is complete and can
+      // check it without a Continue button.
+      //
+      // This does leak the length, which narrows a guess from 1,110,000
+      // possibilities to at most 1,000,000. Set against the threat - a child
+      // with the family tablet and a few minutes - that is nothing, and the
+      // button it removes is pressed every single session.
+      length: pin.length,
     }),
   );
+}
+
+/**
+ * How many digits the stored PIN has, or null if this device predates it.
+ *
+ * Null means the keypad has to try as the parent types rather than knowing
+ * when to look.
+ */
+export function pinLength() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').length ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function verifyPin(pin) {

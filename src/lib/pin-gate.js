@@ -6,6 +6,7 @@ import {
   recordFailure,
   clearFailures,
   lockoutRemaining,
+  pinLength,
 } from './pin.js';
 
 /**
@@ -56,6 +57,12 @@ function takeHandoff() {
  * where a text field summons a keyboard over half the screen. Dots rather than
  * digits, because the children are usually standing right there.
  *
+ * There is no Continue button when the PIN is being entered. The stored record
+ * knows how many digits it has, so the last tap is the one that opens the
+ * door - which removes a press from every session, and from every trip into
+ * the parent area. Choosing a PIN still has a button, because nothing knows
+ * how long that one is meant to be until it is confirmed.
+ *
  * Resolves when the PIN is accepted. Never rejects: a parent who cannot
  * remember it stays on this screen, which is the correct outcome.
  */
@@ -91,6 +98,12 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
     ? "Four to six digits, just for this device. It keeps this out of your children's hands."
     : (explainer ?? 'So this can only be opened by you.');
 
+  // Says "Checking..." the instant the last digit lands, because verifying is
+  // deliberately slow and an unresponsive keypad reads as a broken one.
+  const working = document.createElement('p');
+  working.className = 'pip__working';
+  working.dataset.pinWorking = '';
+
   const dots = document.createElement('div');
   dots.className = 'pip__dots';
   dots.setAttribute('aria-hidden', 'true');
@@ -108,11 +121,19 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
   count.setAttribute('role', 'status');
   count.setAttribute('aria-live', 'polite');
 
+  const expected = creating ? null : pinLength();
+  // A device that set its PIN before the length was recorded has to be tried
+  // at every allowed length instead. Rare, and it costs only the work.
+  const autoLengths = expected ? [expected] : [4, 5, 6];
+
   const submit = document.createElement('button');
   submit.type = 'button';
   submit.className = 'btn btn--block';
   submit.dataset.pinSubmit = '';
   submit.textContent = creating ? 'Set PIN' : 'Continue';
+  // Kept in the markup for the tests and for a keyboard, but a parent tapping
+  // the keypad never needs to reach it.
+  if (!creating) submit.classList.add('hidden');
 
   const forgot = document.createElement('p');
   forgot.className = 'muted pip__aside';
@@ -120,10 +141,15 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
     ? 'This is not the key to anything your children said. It only gates this screen.'
     : 'Forgotten it? Sign out and back in to set a new one.';
 
-  panel.append(title, note, dots, error, keypad, count, submit, forgot);
+  panel.append(title, note, dots, error, working, keypad, count, submit, forgot);
   mount.append(panel);
 
   let entered = '';
+
+  // Assigned when the promise below is constructed, which happens before any
+  // tap can reach press(). It lives out here because press() is defined
+  // outside the promise and has to be able to call it.
+  let attempt = async () => {};
 
   function render() {
     dots.replaceChildren(
@@ -143,6 +169,12 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
     else if (key === 'clear') entered = '';
     else if (/^\d$/.test(key) && entered.length < 6) entered += key;
     render();
+
+    // The last digit is the button. Only at a length the stored PIN could
+    // actually be, so a six-digit PIN is not checked three times on the way.
+    if (!creating && autoLengths.includes(entered.length)) {
+      attempt({ silent: entered.length < 6 && autoLengths.length > 1 });
+    }
   }
 
   for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back']) {
@@ -170,7 +202,19 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
   render();
 
   return new Promise((resolve) => {
-    async function attempt() {
+    let busy = false;
+
+    /**
+     * Checks what has been typed.
+     *
+     * `silent` is for the one awkward case: a device whose stored PIN predates
+     * the length being recorded, where four and five digits have to be tried
+     * on the way to six. A wrong guess at four digits is not a wrong PIN, it
+     * is an unfinished one, so it must not clear the entry, show an error, or
+     * count towards the lockout.
+     */
+    attempt = async function check({ silent = false } = {}) {
+      if (busy) return;
       error.textContent = '';
 
       const waiting = lockoutRemaining();
@@ -191,11 +235,26 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
         return;
       }
 
+      busy = true;
       submit.disabled = true;
-      const ok = await verifyPin(entered);
+      // Verifying is deliberately slow - two hundred thousand rounds of it -
+      // and on a phone that is long enough for a keypad with no button to look
+      // broken. Say what is happening before starting.
+      working.textContent = 'Checking\u2026';
+
+      const candidate = entered;
+      const ok = await verifyPin(candidate);
+
+      busy = false;
       submit.disabled = false;
+      working.textContent = '';
+
+      // They kept typing while that ran, so the answer is about a PIN that is
+      // no longer on screen.
+      if (candidate !== entered) return;
 
       if (!ok) {
+        if (silent) return;
         const { locked } = recordFailure();
         error.textContent = locked ? 'Too many tries. Wait a minute.' : 'That is not the PIN.';
         entered = '';
@@ -204,8 +263,9 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
       }
 
       clearFailures();
+      working.textContent = 'Opening\u2026';
       done();
-    }
+    };
 
     function done() {
       document.removeEventListener('keydown', onKey);
@@ -223,7 +283,8 @@ export function requirePin(mount, { heading, explainer, acceptHandoff = false } 
       else if (event.key === 'Enter') attempt();
     }
 
-    submit.addEventListener('click', attempt);
+    // Wrapped, so a click event is not read as an options object.
+    submit.addEventListener('click', () => attempt());
     // A physical keyboard still works, for a laptop.
     document.addEventListener('keydown', onKey);
   });

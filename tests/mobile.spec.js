@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { sql, createInvite, cleanupTestData, testEmail, TEST_PASSWORD } from './helpers.js';
+import {
+  sql,
+  createInvite,
+  cleanupTestData,
+  testEmail,
+  TEST_PASSWORD,
+  enterPin,
+} from './helpers.js';
 
 /**
  * The site on a phone.
@@ -96,10 +103,7 @@ async function check(page, label) {
 }
 
 async function tapPin(page) {
-  await page.waitForSelector('#stage-pin [data-pin-submit]');
-  for (const digit of PIN) {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
+  await enterPin(page, PIN);
 }
 
 test('every screen fits a phone and can be tapped', async ({ page }) => {
@@ -112,7 +116,7 @@ test('every screen fits a phone and can be tapped', async ({ page }) => {
 
   // --- the PIN, which is the screen that was hardest to hit ---------------
   await page.goto('/pip.html');
-  await page.waitForSelector('#stage-pin [data-pin-submit]');
+  await page.waitForSelector('#stage-pin [data-pin-submit]', { state: 'attached' });
   await check(page, 'pip.html PIN');
 
   // On a short screen the keypad must still be reachable. It used to be
@@ -140,7 +144,6 @@ test('every screen fits a phone and can be tapped', async ({ page }) => {
   // --- the parents' portal ------------------------------------------------
   await page.goto('/parents.html');
   await tapPin(page);
-  await page.click('#stage-pin [data-pin-submit]');
   await page.waitForSelector('#portal:not(.hidden)');
   await check(page, 'parents.html');
 
@@ -152,7 +155,6 @@ test('every screen fits a phone and can be tapped', async ({ page }) => {
   // --- one child -----------------------------------------------------------
   await page.goto('/parents.html');
   await tapPin(page);
-  await page.click('#stage-pin [data-pin-submit]');
   await page.waitForSelector('#portal:not(.hidden)');
   await page.locator('.kid-row', { hasText: 'Bet' }).getByRole('link', { name: 'Change' }).click();
   await page.waitForSelector('#form-area:not(.hidden)');

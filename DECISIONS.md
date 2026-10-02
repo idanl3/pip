@@ -899,3 +899,50 @@ there is no way to tell whose page you are on.
 when something was actually typed. Unconditional writes would have wiped
 everything Pip knows about a child the first time anyone opened the page to
 correct an age.
+
+
+## 36. Five small things, and why each one is not cosmetic
+
+**Minutes come off the launch screen.** That screen is looked at by the
+children, and how much of a family's allowance is left is a parent's business.
+It stays in the portal, where it was duplicated from.
+
+**A nearly spent month has to be approved by the adult.** Fewer than fifteen
+minutes in the bank - the length one session can run - means a mediation might
+stop in the middle. That is worse than never starting: two children left
+mid-argument by a helper that vanished. So after the PIN, and only then, the
+adult is told how many are left and chooses. With nothing left, the option to
+start is not offered at all.
+
+The minutes are read **before** the PIN rather than when the warning is needed.
+Anything slow between the tap that accepts the PIN and the microphone request
+risks the permission prompt, which is a lesson this project has already paid
+for once.
+
+**"Ready to go" now means a session would actually work**, not merely that the
+family is approved. Approval is the first of three things that have to be true,
+and the one a parent can do least about. It now reads "Almost ready" when the
+device has no microphone, and "Out of minutes" when the month is spent. The
+owner spotted this: the launch screen was saying the microphone had not been
+set up while the portal said everything was fine.
+
+**The PIN has no Continue button.** The stored record now carries the PIN's
+length, so the last digit is the button. That removes a press from every
+session and every trip into the parent area, and the keypad says "Checking..."
+the instant the last digit lands, because verifying is two hundred thousand
+rounds of PBKDF2 and an unresponsive keypad reads as a broken one.
+
+Storing the length leaks it, narrowing a guess from 1,110,000 possibilities to
+at most 1,000,000. Against the actual threat - a child with the family tablet
+and a few minutes - that is nothing, and the button it removes is pressed every
+single session. Devices whose PIN predates this are tried at four, five and six
+digits instead; a wrong guess at four is an unfinished PIN rather than a wrong
+one, so it must not clear the entry, show an error, or count towards the
+lockout. Choosing a PIN keeps its button, because nothing can know how long it
+is meant to be until it is confirmed.
+
+**Onboarding says that nobody reads this back.** Now that no screen ever shows
+a child's description again, a parent writing one deserves to know that while
+they are writing it - both so they can be candid, and so they understand they
+will not be able to re-read it. It also asks them to keep it general: "goes
+quiet when upset" is what helps Pip, and whatever lies behind it is theirs.

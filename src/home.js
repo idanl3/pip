@@ -1,6 +1,5 @@
 import { requireSession } from './lib/auth.js';
 import { loadFamily } from './lib/data.js';
-import { supabase } from './lib/supabase.js';
 import { siteState, wasEverGranted } from './lib/microphone.js';
 
 /**
@@ -21,7 +20,6 @@ const waiting = document.querySelector('#waiting');
 const waitingTitle = document.querySelector('#waiting-title');
 const waitingBody = document.querySelector('#waiting-body');
 const waitingNote = document.querySelector('#waiting-note');
-const minutesLine = document.querySelector('#minutes');
 
 /**
  * What a family sees when they cannot start yet.
@@ -59,7 +57,6 @@ const BLOCKED = {
 
   if (family.status === 'approved') {
     ready.classList.remove('hidden');
-    await showMinutes(family);
     await nudgeAboutMicrophone();
     return;
   }
@@ -87,27 +84,4 @@ async function nudgeAboutMicrophone() {
   if (wasEverGranted()) return;
   if ((await siteState()) === 'granted') return;
   document.querySelector('#mic-nudge').classList.remove('hidden');
-}
-
-/**
- * Minutes left this month, in the footer rather than beside the button.
- *
- * Read from the family_usage view, which derives the total from the sessions
- * rather than keeping a counter. A counter that has drifted is worse than
- * none: it either blocks a family with minutes left or bills one without.
- */
-async function showMinutes(family) {
-  const { data } = await supabase
-    .from('family_usage')
-    .select('minutes_used, monthly_minute_limit')
-    .eq('family_id', family.id)
-    .maybeSingle();
-
-  const limit = data?.monthly_minute_limit ?? family.monthly_minute_limit;
-  const left = Math.max(0, limit - (data?.minutes_used ?? 0));
-
-  minutesLine.textContent =
-    left > 0
-      ? `${left} of ${limit} minutes left this month`
-      : 'No minutes left this month. They reset on the first.';
 }

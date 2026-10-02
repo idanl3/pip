@@ -37,6 +37,9 @@ const micHelp = document.querySelector('#mic-help');
 const micCheck = document.querySelector('#mic-check');
 const micGrant = document.querySelector('#mic-grant');
 
+/** Minutes left, kept so the readiness line can be redrawn cheaply. */
+let lastMinutesLeft = 0;
+
 (async function start() {
   const session = await requireSession();
   if (!session) return;
@@ -54,18 +57,16 @@ const micGrant = document.querySelector('#mic-grant');
   });
   document.querySelector('#portal').classList.remove('hidden');
 
-  const status = describeStatus(family.status);
-  statusTitle.textContent = status.title;
-  statusBody.textContent = status.body;
   if (family.status === 'needs_changes' && family.review_note) {
     reviewNote.textContent = `Idan's note: ${family.review_note}`;
     reviewNote.classList.remove('hidden');
   }
 
-  await showMinutes(family);
+  lastMinutesLeft = await showMinutes(family);
+  const left = lastMinutesLeft;
   await showKids(family);
-
-  await showMicrophone();
+  const hasMicrophone = await showMicrophone();
+  showReadiness(family, { left, hasMicrophone });
 
   if (await isAdmin()) {
     document.querySelector('#admin-link').classList.remove('hidden');
@@ -74,6 +75,43 @@ const micGrant = document.querySelector('#mic-grant');
   notice.textContent = error.message;
 });
 
+/**
+ * Whether a session would actually work, rather than only whether it is
+ * allowed.
+ *
+ * "Ready to go" used to mean "approved", which is why it said so cheerfully on
+ * a device that had never been given a microphone. Approval is the first of
+ * three things that have to be true, and the one a parent can do least about.
+ */
+function showReadiness(family, { left, hasMicrophone }) {
+  if (family.status !== 'approved') {
+    const status = describeStatus(family.status);
+    statusTitle.textContent = status.title;
+    statusBody.textContent = status.body;
+    return;
+  }
+
+  if (!hasMicrophone) {
+    statusTitle.textContent = 'Almost ready';
+    statusBody.textContent =
+      'Pip has not been given the microphone on this device yet. The check is ' +
+      'below, and it takes a moment.';
+    return;
+  }
+
+  if (left <= 0) {
+    statusTitle.textContent = 'Out of minutes';
+    statusBody.textContent =
+      'This month\u2019s minutes are used up. They reset on the first, or ask ' +
+      'Idan for more.';
+    return;
+  }
+
+  statusTitle.textContent = 'Ready to go';
+  statusBody.textContent = 'You can start a session whenever you need one.';
+}
+
+/** Returns how many minutes are left, which readiness also needs. */
 async function showMinutes(family) {
   const { data } = await supabase
     .from('family_usage')
@@ -83,8 +121,10 @@ async function showMinutes(family) {
 
   const limit = data?.monthly_minute_limit ?? family.monthly_minute_limit;
   const used = data?.minutes_used ?? 0;
+  const left = Math.max(0, limit - used);
 
-  minutesLine.textContent = `${used} used, ${Math.max(0, limit - used)} of ${limit} left`;
+  minutesLine.textContent = `${used} used, ${left} of ${limit} left`;
+  return left;
 }
 
 /**
@@ -168,6 +208,7 @@ document.querySelector('#portal').addEventListener('click', (event) => {
 
 async function showMicrophone() {
   const state = await siteState();
+  const granted = state === 'granted' || wasEverGranted();
 
   // Where the browser has its own grant control, use that instead of ours.
   // A tap on it is a trusted signal Chrome will honour even when it has
@@ -178,11 +219,11 @@ async function showMicrophone() {
   micGrant.classList.toggle('hidden', !browserOwned);
   micCheck.classList.toggle('hidden', browserOwned);
 
-  if (state === 'granted' || wasEverGranted()) {
+  if (granted) {
     micState.textContent = 'Pip can hear you on this device.';
     micState.classList.add('mic__state--ok');
     micCheck.textContent = 'Check again';
-    return;
+    return true;
   }
 
   micState.textContent =
@@ -190,6 +231,7 @@ async function showMicrophone() {
       ? 'This device has blocked the microphone.'
       : 'Not checked on this device yet.';
   micState.classList.remove('mic__state--ok');
+  return false;
 }
 
 if (supportsGrantControl()) {
@@ -197,12 +239,12 @@ if (supportsGrantControl()) {
     onGranted: async () => {
       micHelp.classList.add('hidden');
       markGranted();
-      await showMicrophone();
+      await refreshMicrophone();
     },
     onRefused: async (error) => {
       renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
       micHelp.classList.remove('hidden');
-      await showMicrophone();
+      await refreshMicrophone();
     },
   });
 }
@@ -235,13 +277,20 @@ async function runCheck(asking, started) {
     renderRefusal(micHelp, await explainRefusal(error), await refusalDetail(error));
     micHelp.classList.remove('hidden');
     micCheck.disabled = false;
-    await showMicrophone();
+    await refreshMicrophone();
     return;
   }
 
   micHelp.classList.add('hidden');
   micCheck.disabled = false;
-  await showMicrophone();
+  await refreshMicrophone();
+}
+
+/** The card and the readiness line are two views of one fact. */
+async function refreshMicrophone() {
+  const family = await loadFamily();
+  const hasMicrophone = await showMicrophone();
+  if (family) showReadiness(family, { left: lastMinutesLeft, hasMicrophone });
 }
 
 /**

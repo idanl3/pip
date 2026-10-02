@@ -6,6 +6,7 @@ import {
   testEmail,
   watchForErrors,
   TEST_PASSWORD,
+  enterPin,
 } from './helpers.js';
 
 /**
@@ -145,10 +146,7 @@ test('the saved profile comes back intact when reopened', async ({ page }) => {
   // This context has no PIN yet, so the gate offers to set one.
   await page.goto('/onboarding.html');
   await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
-  for (const digit of '481902') {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page);
 
   // The children are not on this screen at all any more - they live in the
   // portal, and open one at a time - so nothing about Dalet is readable here.
@@ -210,10 +208,7 @@ test('writing one household answer leaves the others alone', async ({ page }) =>
   // Back in, and only one answer is written.
   await page.goto('/onboarding.html');
   await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
-  for (const digit of '481902') {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page);
 
   await page.fill('#extra-care', 'The baby is settled now.');
   await page.click('#submit');
@@ -308,10 +303,7 @@ test("a parent can change one child without touching the others", async ({ page 
 
   // No PIN on this device yet, so the gate offers to choose one.
   await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/choose a parent pin/i);
-  for (const digit of '481902') {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page);
   await page.waitForSelector('#portal:not(.hidden)');
 
   // Names and ages, and nothing a child should not read over a shoulder.
@@ -411,10 +403,7 @@ async function approvedFamily(page, name = 'Yod') {
 async function openPortal(page) {
   await page.getByRole('link', { name: 'Parents', exact: true }).click();
   await page.waitForURL('**/parents.html');
-  for (const digit of '481902') {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page);
   await page.waitForSelector('#portal:not(.hidden)');
 }
 
@@ -450,6 +439,10 @@ test.describe('before the microphone has been granted', () => {
     await openPortal(page);
     await expect(page.locator('#mic-state')).not.toHaveText(/pip can hear you/i);
 
+    // "Ready to go" used to mean only "approved", which is why it said so on a
+    // device that had never been given a microphone.
+    await expect(page.locator('#status-title')).toHaveText(/almost ready/i);
+
     // Chrome is launched with a fake capture device, so the check succeeds
     // here however the context's permissions are set. What is being proved is
     // the wiring: the check runs, it records the result, and both screens stop
@@ -457,6 +450,7 @@ test.describe('before the microphone has been granted', () => {
     await page.getByRole('button', { name: /check the microphone/i }).click();
     await expect(page.locator('#mic-state')).toHaveText(/pip can hear you/i);
     await expect(page.locator('#mic-help')).toBeHidden();
+    await expect(page.locator('#status-title')).toHaveText(/ready to go/i);
 
     await page.goto('/home.html');
     await page.waitForSelector('#ready:not(.hidden)');
@@ -568,10 +562,7 @@ test('children can be added and removed from the portal', async ({ page }) => {
   await page.waitForURL('**/home.html');
 
   await page.goto('/parents.html');
-  for (const digit of '481902') {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page);
   await page.waitForSelector('#portal:not(.hidden)');
   await expect(page.locator('.kid-row')).toHaveCount(2);
 

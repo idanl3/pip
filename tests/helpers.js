@@ -141,3 +141,21 @@ export function watchForErrors(page) {
   });
   return errors;
 }
+
+/**
+ * Taps a PIN into the on-screen keypad and gets through the gate.
+ *
+ * Entering a PIN has no Continue button - the last digit is the button, since
+ * the stored record knows how many digits to expect. Choosing one still does,
+ * because nothing knows how long it is meant to be until it is confirmed. So
+ * this presses the button only when there is one to press.
+ */
+export async function enterPin(page, pin = '481902', mount = '#stage-pin') {
+  // Attached rather than visible: entering a PIN has no button.
+  await page.waitForSelector(`${mount} [data-pin-submit]`, { state: 'attached' });
+  for (const digit of pin) {
+    await page.click(`${mount} button[data-key="${digit}"]`);
+  }
+  const submit = page.locator(`${mount} [data-pin-submit]`);
+  if (await submit.isVisible()) await submit.click();
+}

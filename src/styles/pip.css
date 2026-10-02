@@ -91,6 +91,14 @@
   background: var(--pip-coral);
 }
 
+.pip__working {
+  margin: 0;
+  min-height: 1.4em;
+  text-align: center;
+  font-weight: 600;
+  color: var(--pip-plum-soft);
+}
+
 /* An on-screen keypad, because this lives on a family tablet where a text
    field summons a keyboard over half the screen. Big targets: the parent is
    often holding a crying child with the other arm. */

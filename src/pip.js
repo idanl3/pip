@@ -1,5 +1,5 @@
 import { requireSession } from './lib/auth.js';
-import { loadFamily } from './lib/data.js';
+import { loadFamily, minutesLeft } from './lib/data.js';
 import { PipBlob } from './lib/blob.js';
 import { PipSession } from './lib/session.js';
 import { requirePin } from './lib/pin-gate.js';
@@ -42,6 +42,7 @@ const endButton = document.querySelector('#end');
 const retryButton = document.querySelector('#retry');
 const micHelp = document.querySelector('#mic-help');
 const micGrant = document.querySelector('#mic-grant');
+const stageMinutes = document.querySelector('#stage-minutes');
 const alertBox = document.querySelector('#alert');
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -179,6 +180,10 @@ function setConversationState(state) {
     return;
   }
 
+  // Read before the PIN, not after. Anything slow between the tap that accepts
+  // the PIN and the microphone request puts the permission prompt at risk.
+  const left = await minutesLeft(family);
+
   // Resolves inside the tap that accepted the PIN, which is what lets the
   // browser grant the microphone immediately afterwards.
   await requirePin(stagePin, {
@@ -186,8 +191,13 @@ function setConversationState(state) {
     explainer: 'So a session can only be started by you.',
   });
 
-  // The microphone first, with nothing between it and the tap that accepted
-  // the PIN. Raising the blob was here and has moved below: it is only a few
+  // Not enough left to finish a session? Say so, and let the adult decide.
+  // After the PIN on purpose: it is a decision about money and about whether a
+  // mediation can run to the end, and it is not for the children.
+  if (left < LOW_MINUTES) await approveShortMonth(left);
+
+  // The microphone, with nothing between it and the tap that accepted either
+  // the PIN or that warning. Raising the blob was here and has moved below: it is only a few
   // milliseconds of canvas work, but a permission request wants nothing at all
   // in front of it.
   //
@@ -207,6 +217,45 @@ function setConversationState(state) {
 
   await startSession();
 })().catch((error) => fail(error.message));
+
+/* --- not much left this month -------------------------------------------
+
+   A session can run for fifteen minutes, so fewer than fifteen in the bank
+   means it might stop in the middle of a mediation. That is worse than never
+   starting: two children left mid-argument by a helper that vanished.
+
+   So the adult is told and has to choose. Resolving inside the tap keeps the
+   microphone grantable afterwards, exactly as the PIN gate does. */
+
+const LOW_MINUTES = 15;
+
+function approveShortMonth(left) {
+  stageMinutes.classList.remove('hidden');
+
+  const title = document.querySelector('#minutes-title');
+  const body = document.querySelector('#minutes-body');
+  const go = document.querySelector('#minutes-go');
+  const back = document.querySelector('#minutes-back');
+
+  if (left <= 0) {
+    title.textContent = 'No minutes left this month';
+    body.textContent = 'They reset on the first. If you need more before then, ask Idan.';
+    go.classList.add('hidden');
+  } else {
+    title.textContent = `${left} ${left === 1 ? 'minute' : 'minutes'} left this month`;
+    body.textContent =
+      'A session can run up to fifteen minutes, so this one might not reach the ' +
+      'end. Minutes reset on the first, and Idan can add more.';
+  }
+
+  return new Promise((resolve) => {
+    back.addEventListener('click', () => location.replace('/home.html'));
+    go.addEventListener('click', () => {
+      stageMinutes.classList.add('hidden');
+      resolve();
+    });
+  });
+}
 
 /** The blob, running, before anything can go wrong. */
 function showStage() {

@@ -8,6 +8,7 @@ import {
   promoteToAdmin,
   familyOf,
   TEST_PASSWORD,
+  enterPin,
 } from './helpers.js';
 
 /**
@@ -36,11 +37,7 @@ test.afterAll(cleanupTestData);
  * not be able to read that about themselves by picking up the tablet.
  */
 async function passPinGate(page, { pin = '481902', reveal = '#form-area' } = {}) {
-  await page.waitForSelector('#stage-pin [data-pin-submit]');
-  for (const digit of pin) {
-    await page.click(`#stage-pin button[data-key="${digit}"]`);
-  }
-  await page.click('#stage-pin [data-pin-submit]');
+  await enterPin(page, pin);
   await page.waitForSelector(`${reveal}:not(.hidden)`);
 }
 
@@ -188,8 +185,10 @@ test('an owner who is also a family lands on their own home, not the admin scree
   // screen deliberately no longer prints the children's profiles: it is
   // opened with them in the room.
   await expect(page.locator('#ready')).toBeVisible();
-  await expect(page.locator('#minutes')).toContainText(/minutes left this month/i);
   await expect(page.locator('body')).not.toContainText('Vav');
+  // No minutes here either. This screen is looked at by the children, and how
+  // much of the family's allowance is left is a parent's business.
+  await expect(page.locator('body')).not.toContainText(/minutes/i);
 
   // The admin area is reachable through the parents' portal, which is behind
   // the PIN like everything else a parent might want.

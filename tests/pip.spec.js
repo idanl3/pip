@@ -27,12 +27,21 @@ import {
 
 const PIN = '481902';
 
-/** Taps a PIN into the on-screen keypad and accepts it. */
+/**
+ * Taps a PIN into the on-screen keypad and accepts it.
+ *
+ * Entering a PIN has no Continue button - the last digit is the button, since
+ * the stored record knows how many digits to expect. The one case that still
+ * has a button is choosing a PIN, where nothing can know how long it is meant
+ * to be until it is confirmed.
+ */
 async function typePin(page, digits) {
   await page.click('#stage-pin button[data-key="clear"]');
   for (const digit of digits) {
     await page.click(`#stage-pin button[data-key="${digit}"]`);
   }
+  const submit = page.locator(PIN_SUBMIT);
+  if (await submit.isVisible()) await submit.click();
 }
 
 const PIN_SUBMIT = '#stage-pin [data-pin-submit]';
@@ -82,17 +91,15 @@ test('a parent sets a PIN and Pip actually connects', async ({ page }) => {
   await expect(page.locator(PIN_HEADING)).toHaveText(/choose a parent pin/i);
 
   await typePin(page, '1111');
-  await page.click(PIN_SUBMIT);
   await expect(page.locator(PIN_ERROR)).toContainText(/same digit/i);
 
   await typePin(page, '1234');
-  await page.click(PIN_SUBMIT);
   await expect(page.locator(PIN_ERROR)).toContainText(/run of digits/i);
 
   // Dots, never digits: children are standing next to this screen.
-  await typePin(page, PIN);
-  await expect(page.locator('#stage-pin .pip__dot')).toHaveCount(PIN.length);
-  await page.click(PIN_SUBMIT);
+  await typePin(page, PIN.slice(0, -1));
+  await expect(page.locator('#stage-pin .pip__dot')).toHaveCount(PIN.length - 1);
+  await page.click(`#stage-pin button[data-key="${PIN.at(-1)}"]`);
 
   // --- straight into the conversation -------------------------------------
   // Nothing between the PIN and Pip. The parent used to pick who was involved
@@ -166,7 +173,6 @@ test('a returning parent is asked for the PIN, not to set one', async ({ page })
 
   await page.goto('/pip.html');
   await typePin(page, PIN);
-  await page.click(PIN_SUBMIT);
   await expect(page.locator('#stage-live')).toBeVisible();
 
   // Reload: the PIN is stored on the device, so it should now be asked for
@@ -175,11 +181,9 @@ test('a returning parent is asked for the PIN, not to set one', async ({ page })
   await expect(page.locator(PIN_HEADING)).toHaveText(/^parent pin$/i);
 
   await typePin(page, '999999');
-  await page.click(PIN_SUBMIT);
   await expect(page.locator(PIN_ERROR)).toContainText(/not the PIN/i);
 
   await typePin(page, PIN);
-  await page.click(PIN_SUBMIT);
   await expect(page.locator('#stage-live')).toBeVisible();
 
   expect(errors).toEqual([]);
@@ -239,4 +243,48 @@ test('a handed-over unlock does not open the kids screen', async ({ page }) => {
 
   await expect(page.locator('#stage-pin [data-pin-heading]')).toHaveText(/parent pin/i);
   await expect(page.locator('#stage-live')).toBeHidden();
+});
+
+/**
+ * A month that is nearly spent.
+ *
+ * A session can run for fifteen minutes, so fewer than fifteen in the bank
+ * means it might stop in the middle of a mediation - two children left
+ * mid-argument by a helper that vanished. The adult is told after the PIN,
+ * because it is a decision about money and about whether this can finish, and
+ * it is not for the children.
+ */
+test('a nearly spent month has to be approved by the adult', async ({ page }) => {
+  const email = await approvedFamily(page);
+  await sql(`
+    update public.families set monthly_minute_limit = 8
+     where owner_id = (select id from auth.users where email = '${email}')
+  `);
+
+  await page.goto('/pip.html');
+  await typePin(page, PIN);
+
+  await expect(page.locator('#stage-minutes')).toBeVisible();
+  await expect(page.locator('#minutes-title')).toHaveText(/8 minutes left this month/i);
+  await expect(page.locator('#minutes-body')).toContainText(/fifteen minutes/i);
+  // Nothing has started: the conversation waits on the adult.
+  await expect(page.locator('#stage-live')).toBeHidden();
+
+  await page.click('#minutes-back');
+  await page.waitForURL('**/home.html');
+});
+
+test('a month with nothing left does not offer to start anyway', async ({ page }) => {
+  const email = await approvedFamily(page);
+  await sql(`
+    update public.families set monthly_minute_limit = 0
+     where owner_id = (select id from auth.users where email = '${email}')
+  `);
+
+  await page.goto('/pip.html');
+  await typePin(page, PIN);
+
+  await expect(page.locator('#minutes-title')).toHaveText(/no minutes left this month/i);
+  await expect(page.locator('#minutes-go')).toBeHidden();
+  await expect(page.locator('#minutes-body')).toContainText(/ask idan/i);
 });
