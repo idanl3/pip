@@ -14,12 +14,30 @@ import { supabase } from './supabase.js';
  * design working.
  */
 
-/** The signed-in parent's family, or null if they have not made one yet. */
+/**
+ * The signed-in parent's own family, or null if they have not made one yet.
+ *
+ * The `owner_id` filter is load-bearing, which is the opposite of what the
+ * note above says and is why that note is now wrong for this one function.
+ *
+ * Leaning on row-level security alone works for a parent, who can see exactly
+ * one family. It fails for an admin, whose policy lets them read *every*
+ * family — so `select('*').limit(1)` handed back an arbitrary one. The owner
+ * runs the pilot and is also a family in it, so their own home page showed
+ * another family's children, and saving the profile would have written to that
+ * family's row.
+ *
+ * Found by a test that passed alone and failed in a suite, because only then
+ * was there more than one family in the table to pick the wrong one from.
+ */
 export async function loadFamily() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user) return null;
+
   const { data, error } = await supabase
     .from('families')
     .select('*')
-    .limit(1)
+    .eq('owner_id', userData.user.id)
     .maybeSingle();
 
   if (error) throw error;

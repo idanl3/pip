@@ -1,4 +1,3 @@
-import { isAdmin } from './auth.js';
 import { loadFamily } from './data.js';
 
 /**
@@ -18,11 +17,13 @@ export async function routeAfterSignIn() {
     return;
   }
 
-  if (await isAdmin()) {
-    location.replace('/admin.html');
-    return;
-  }
-
+  // Admins are not sent to the admin screen.
+  //
+  // They were, and it was wrong: the owner runs the pilot *and* is one of the
+  // families in it, so signing in dumped them on the admin area and they could
+  // never reach their own home page or start a session with their own
+  // children. Being an admin is a thing you can do, not an identity that
+  // replaces being a parent. The admin area is a link from home instead.
   const family = await loadFamily();
   location.replace(family ? '/home.html' : '/onboarding.html');
 }

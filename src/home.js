@@ -1,4 +1,4 @@
-import { requireSession, signOut } from './lib/auth.js';
+import { requireSession, signOut, isAdmin } from './lib/auth.js';
 import { loadFamily, loadChildren, describeStatus } from './lib/data.js';
 
 const notice = document.querySelector('#notice');
@@ -34,6 +34,13 @@ const startCard = document.querySelector('#start-card');
 
   const children = await loadChildren(family.id);
   render(family, children);
+
+  // Shown only to the handful of people who can act on it. This is courtesy,
+  // not security: the admin screen and every table behind it refuse anyone
+  // else regardless of whether this link is on the page.
+  if (await isAdmin()) {
+    document.querySelector('#admin-link').classList.remove('hidden');
+  }
 })().catch((error) => {
   notice.textContent = error.message;
 });

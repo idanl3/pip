@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  sql,
   createInvite,
   cleanupTestData,
   testEmail,
@@ -117,6 +118,70 @@ test('the owner reviews, approves, limits and sends back a family', async ({ bro
 
   expect(familyErrors, 'the family saw console errors').toEqual([]);
   expect(adminErrors, 'the admin saw console errors').toEqual([]);
+});
+
+test('an owner who is also a family lands on their own home, not the admin screen', async ({
+  browser,
+}) => {
+  // The bug this guards against: being an admin used to send you to the admin
+  // area on every sign-in, so the owner — who runs the pilot and is also a
+  // family in it — could never reach their own home page or start a session
+  // with their own children.
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const errors = watchForErrors(page);
+
+  const email = testEmail();
+  await join(page, await createInvite(), email);
+  await page.fill('#parent-other', 'Mum');
+  const kids = page.locator('#children > .child');
+  await kids.nth(1).locator('.js-remove').click();
+  await kids.nth(0).locator('.js-name').fill('Vav');
+  await kids.nth(0).locator('.js-age').fill('8');
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  await sql(`
+    update public.families set status = 'approved'
+     where owner_id = (select id from auth.users where email = '${email}')
+  `);
+  await promoteToAdmin(email);
+
+  // Arriving at the front door while already signed in.
+  await page.goto('/index.html');
+  await page.waitForURL('**/home.html');
+
+  // Their own family, and a session they can start.
+  await expect(page.locator('#family')).toContainText('Vav, 8');
+  await expect(page.locator('#start-card')).toBeVisible();
+
+  // The admin area is reachable, but as a link rather than a destination.
+  const adminLink = page.locator('#admin-link');
+  await expect(adminLink).toBeVisible();
+  await adminLink.click();
+  await page.waitForURL('**/admin.html');
+
+  // And there is a way back out of it.
+  await page.getByRole('link', { name: 'Your own family' }).click();
+  await page.waitForURL('**/home.html');
+
+  expect(errors).toEqual([]);
+});
+
+test('a parent who is not an admin never sees the admin link', async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  const email = testEmail();
+
+  await join(page, await createInvite(), email);
+  await page.fill('#parent-other', 'Mum');
+  const kids = page.locator('#children > .child');
+  await kids.nth(1).locator('.js-remove').click();
+  await kids.nth(0).locator('.js-name').fill('Zayin');
+  await kids.nth(0).locator('.js-age').fill('5');
+  await page.click('#submit');
+  await page.waitForURL('**/home.html');
+
+  await expect(page.locator('#admin-link')).toBeHidden();
 });
 
 test('the owner can create an invitation and copy its link', async ({ browser }) => {
