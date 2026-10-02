@@ -17,13 +17,14 @@ Three files carry the whole handover. Read all of them before doing anything:
 **Phase 1 is complete.** The site is live on HTTPS at
 https://pip.linnewiel.com with HTTP redirecting to it.
 
-**Phase 2 is part-built.** The schema, the row-level security policies and the
-guard triggers are applied and verified — `scripts/test-rls.ps1` runs 20 checks
-against the live database and all pass. Still to build: login, the onboarding
-form, and the admin approval screen.
+**Phases 1 to 4 are done.** A family can be invited, join, describe their
+children, be approved, and hold a real voice session with Pip. Verified end to
+end against the live site, including a conversation with the live agent.
 
-**Not blocked**, but magic-link login will need custom SMTP before real
-families can use it. See "Owed by the owner".
+**Next: phase 5**, minute tracking — the ElevenLabs webhook, usage display and
+the scheduled job that also keeps the free-tier project awake.
+
+**Not blocked.** Nothing is needed from the owner to continue.
 
 ---
 
@@ -47,7 +48,7 @@ families can use it. See "Owed by the owner".
 | 1 | Project setup, Pages, domain | **Done** |
 | 2 | Accounts and onboarding | **In progress.** Schema, policies and triggers done and tested. Login, onboarding form and admin screen still to build |
 | 3 | Agent templating | **Done.** Prompt templated and pushed, seven variables with defaults, `end_call` enabled, privacy fixed |
-| 4 | Sessions, PIN, kids' blob screen | Not started. HTTPS is in place, so microphone access will work |
+| 4 | Sessions, PIN, kids' blob screen | **Done.** Tested with a real conversation through a fake microphone |
 | 5 | Minute tracking and limits | Not started |
 | 6 | Encryption and recaps | Not started |
 | 7 | Safety alert and polish | Not started. Hebrew review is out of scope for now |
@@ -93,6 +94,7 @@ The CLI is deliberately **not linked** to the project. See decision 12.
 | --- | --- |
 | `load-env.ps1` | Dot-source first. Refreshes PATH, loads `.env`, builds `PIP_DB_URL` |
 | `test-rls.ps1` | Attacks the schema with two real accounts. Run after any policy change |
+| `test-functions.ps1` | Attacks the edge functions. Run after changing either one |
 | `npm test` | Browser suite against the dev server. Fast; sees **no** policy |
 | `npm run test:built` | Builds, serves `dist/`, tests that. **Sees the real policy — run before committing** |
 | `npm run test:live` | Same suite against the deployed site. The only way to catch a stale deploy |
@@ -167,6 +169,35 @@ Each of these cost time. Don't rediscover them.
   directly** rather than guessing which scope to add. Call the endpoints with
   `Authorization: Bearer $env:SUPABASE_ACCESS_TOKEN` and see which ones 403.
   That turned a guessing game into a two-minute answer.
+- **Supabase's gateway rejects the CORS preflight when `verify_jwt` is on.** A
+  preflight carries no `Authorization` header by design, so the function never
+  runs and the browser reports only **"Failed to fetch"**. Deploy with
+  `--no-verify-jwt` and check the JWT in the function, which `start-session`
+  and `end-session` already do — an anonymous POST still gets a 401 from our
+  own code.
+- **`Access-Control-Allow-Headers` must list `apikey`.** Supabase requires
+  that header on every request. Without it the preflight answers a cheerful
+  204 and the browser then refuses the real request, again with only "Failed
+  to fetch". Looks perfectly healthy from a script, because scripts send no
+  preflight.
+- **`service_role` bypasses row-level security but NOT grants.** Two separate
+  mechanisms, and only the first is famous. With "automatically expose new
+  tables" off it has no grants at all, and every edge function fails with
+  `42501 permission denied`, which reaches the parent as "something went
+  wrong". Add a line to the grant migration for each new table.
+- **This project has legacy API keys disabled.** The `SUPABASE_SERVICE_ROLE_KEY`
+  that every example uses is injected into functions and then refused by the
+  gateway with a bodyless 401. The usable key arrives as `SUPABASE_SECRET_KEYS`,
+  a JSON dictionary; `_shared/clients.ts` handles both.
+- **Check `error`, not just `data`.** A failing Supabase query returns null
+  data, so code that inspects only `data` reports "no family profile found"
+  for a family that plainly exists. A swallowed error becomes a lie about the
+  data, and it cost more time than the bug it hid.
+- **`spawnSync` on Windows: no good option, so avoid it.** With `shell: true`
+  an argument containing spaces is re-split, so `--grep "two words"` becomes
+  three arguments. Without a shell, modern Node refuses to spawn a `.cmd` and
+  fails silently with no output at all. Run the tool's own CLI through
+  `process.execPath` instead, as `scripts/run-tests.mjs` does.
 - **PowerShell 5.1 corrupts files two different ways.** `-Encoding utf8`
   writes a **BOM**, and Vite's JSON loader rejects it — that broke the build
   both locally and in CI, with `Unexpected token ''`. npm tolerates a BOM, so

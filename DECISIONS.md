@@ -410,3 +410,78 @@ dashboard still behaves sensibly.
 owner's children when spoken to directly. The real profile only arrives when a
 session starts through the website, in phase 4. Dashboard testing now tests
 Pip's behaviour, not Pip's knowledge of a particular family.
+
+---
+
+## 19. Five overlapping ways to end a session
+**2026-10-02**
+
+A session ends when any one of these happens, and the rest become no-ops:
+Pip's own `end_call`, the agent's fifteen-minute cap, the parent pressing
+finish, the page noticing 45 seconds of silence or being hidden for a minute,
+and a local timer matching the agent's cap.
+
+**Why so many:** in the owner's own testing Pip said goodbye and then listened
+to the family's evening. The exported sessions showed why, conclusively — every
+one ended with `Client disconnected: 1000`, meaning the browser closed the
+connection. Pip had never ended a conversation in its life, because the
+instruction was missing from the live prompt and the tool was disabled.
+
+A single mechanism would have to be the one that never fails. Five that overlap
+only need one to work, and `end-session` is idempotent so a double shutdown is
+harmless. Overlapping shutdowns are a far better failure than a session nobody
+closes.
+
+**The finish button is PIN-gated**, which is the point of a button a child can
+see. The test presses it with the wrong PIN first and asserts the session keeps
+running.
+
+---
+
+## 20. The blob reacts to real audio, and ended looks ended
+**2026-10-02**
+
+The blob is driven by `getInputVolume()` and `getOutputVolume()` from the voice
+SDK, not by a timer.
+
+**Why it matters more than it sounds:** children work out within seconds
+whether a thing is really listening. A blob pulsing on a loop is a lie they
+will catch, and once caught the whole illusion that Pip is paying attention
+goes with it.
+
+Levels rise fast and fall slowly, because following the raw level in both
+directions makes it flicker on every consonant. The wobble underneath is a sum
+of sines rather than noise: a shape that jitters randomly reads as broken, and
+the thing has to look like it is breathing.
+
+**Listening and talking move differently enough to tell apart from across a
+room**, which is the one piece of information a five-year-old needs and cannot
+read.
+
+**Ended is unmistakable.** It settles, shrinks and fades, and the screen waits
+1.8 seconds before changing so that cue is not cut short. A blob still
+breathing after goodbye would be the visual version of the bug this project
+exists to fix.
+
+---
+
+## 21. A browser test holds a real conversation, and that is deliberate
+**2026-10-02**
+
+`tests/pip.spec.js` starts a genuine session with the live agent through a fake
+microphone, a few seconds at a time, and spends real minutes doing it.
+
+**Why nothing cheaper works:** the voice SDK builds its microphone pipeline as
+AudioWorklet modules from blob URLs and signals over LiveKit. A content
+security policy missing `script-src blob:` or the LiveKit host produces a screen
+that looks like it is connecting and never does — and passes perfectly on the
+dev server, which injects no policy at all. The assertion that proves it is
+"Pip is listening", because that text is only set from `onConnect`, which only
+fires once WebRTC is up.
+
+It found three faults in its first three runs, all invisible locally: the
+gateway rejecting the CORS preflight, `apikey` missing from the allowed
+headers, and the test runner unable to pass an argument containing a space.
+
+**Cost:** a few pennies per run. Worth it against the alternative, which was
+asking the owner to test and having it not work.

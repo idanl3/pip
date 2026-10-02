@@ -66,6 +66,36 @@ const END_CALL = {
   params: { system_tool_type: 'end_call' },
 };
 
+/**
+ * Agent settings this repository owns.
+ *
+ * These were each set by hand at some point, which means nothing recorded what
+ * they should be or why. A setting nobody can diff is how the live prompt came
+ * to be missing its entire ending section without anyone noticing, so they
+ * belong here with the reasons attached.
+ */
+const SETTINGS = {
+  // Fifteen minutes. Ten was not headroom: a real session was found cut off
+  // mid-mediation at exactly 600 seconds, with a child speaking at 9:42 and
+  // Pip answering at 9:47. Being severed with no repair and no goodbye is the
+  // worst possible moment to vanish on two upset children.
+  maxDurationSeconds: 900,
+
+  // The agent's own silence timeout, which is one of five independent ways a
+  // session can end. Long enough that a thinking pause or a child deciding
+  // whether to speak does not kill the conversation; short enough that a room
+  // everyone has left does not stay connected.
+  silenceEndCallSeconds: 45,
+
+  // No audio, ever. The agents were found recording the owner's three children
+  // and keeping it with no expiry at all.
+  recordVoice: false,
+
+  // Seven days of transcript, chosen by the owner so there is something to
+  // look at when they report odd behaviour. Audio is off either way.
+  retentionDays: 7,
+};
+
 /* --- the request --------------------------------------------------------- */
 
 const prompt = readFileSync('agent/pip-prompt.template.md', 'utf8').replace(/\r\n/g, '\n');
@@ -106,6 +136,9 @@ console.log(`prompt here    : ${prompt.length} chars`);
 console.log(`identical      : ${livePrompt === prompt}`);
 console.log(`variables      : ${[...declared].join(', ')}`);
 console.log(`end_call now   : ${before.conversation_config.agent.prompt.built_in_tools?.end_call ? 'enabled' : 'not enabled'}`);
+console.log(`max duration   : ${before.conversation_config.conversation.max_duration_seconds}s -> ${SETTINGS.maxDurationSeconds}s`);
+console.log(`silence timeout: ${before.conversation_config.turn.silence_end_call_timeout}s -> ${SETTINGS.silenceEndCallSeconds}s`);
+console.log(`record voice   : ${before.platform_settings.privacy.record_voice} -> ${SETTINGS.recordVoice}`);
 
 if (!apply) {
   console.log('\nDry run. Nothing changed. Pass --apply to push.');
@@ -119,6 +152,14 @@ const body = {
         built_in_tools: { ...before.conversation_config.agent.prompt.built_in_tools, end_call: END_CALL },
       },
       dynamic_variables: { dynamic_variable_placeholders: DEFAULTS },
+    },
+    conversation: { max_duration_seconds: SETTINGS.maxDurationSeconds },
+    turn: { silence_end_call_timeout: SETTINGS.silenceEndCallSeconds },
+  },
+  platform_settings: {
+    privacy: {
+      record_voice: SETTINGS.recordVoice,
+      retention_days: SETTINGS.retentionDays,
     },
   },
 };
@@ -138,9 +179,16 @@ const checks = [
   ['no child profile in the live prompt', !/Name: \w+, age \d+\. Personality:/.test(live.prompt)],
   ['model unchanged', live.llm === before.conversation_config.agent.prompt.llm],
   ['voice unchanged', after.conversation_config.tts.voice_id === before.conversation_config.tts.voice_id],
-  ['recording still off', after.platform_settings.privacy.record_voice === false],
-  ['retention still 7 days', after.platform_settings.privacy.retention_days === 7],
-  ['max duration still 900', after.conversation_config.conversation.max_duration_seconds === 900],
+  ['audio recording is off', after.platform_settings.privacy.record_voice === false],
+  ['retention is 7 days', after.platform_settings.privacy.retention_days === SETTINGS.retentionDays],
+  [
+    'maximum duration is 900 seconds',
+    after.conversation_config.conversation.max_duration_seconds === SETTINGS.maxDurationSeconds,
+  ],
+  [
+    'the silence timeout is set',
+    after.conversation_config.turn.silence_end_call_timeout === SETTINGS.silenceEndCallSeconds,
+  ],
 ];
 
 console.log('');
